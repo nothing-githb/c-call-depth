@@ -1,0 +1,45 @@
+#ifndef RECUR_H
+#define RECUR_H
+int rec_self_00(int n);
+int rec_self_01(int n);
+int rec_self_02(int n);
+int rec_self_03(int n);
+int rec_self_04(int n);
+int rec_self_05(int n);
+int rec_self_06(int n);
+int rec_self_07(int n);
+int rec_self_08(int n);
+int rec_self_09(int n);
+int rec_self_10(int n);
+int rec_self_11(int n);
+int rec_self_12(int n);
+int rec_self_13(int n);
+int rec_self_14(int n);
+int rec_self_15(int n);
+int rec_self_16(int n);
+int rec_self_17(int n);
+int rec_self_18(int n);
+int rec_self_19(int n);
+int rec_self_20(int n);
+int rec_ping_00(int n);
+int rec_pong_00(int n);
+int rec_ping_01(int n);
+int rec_pong_01(int n);
+int rec_ping_02(int n);
+int rec_pong_02(int n);
+int rec_ping_03(int n);
+int rec_pong_03(int n);
+int rec_ping_04(int n);
+int rec_pong_04(int n);
+int rec_ping_05(int n);
+int rec_pong_05(int n);
+int rec_ping_06(int n);
+int rec_pong_06(int n);
+int rec_ping_07(int n);
+int rec_pong_07(int n);
+int rec_ping_08(int n);
+int rec_pong_08(int n);
+int rec_ping_09(int n);
+int rec_pong_09(int n);
+int recur_root(void);
+#endif

@@ -1,0 +1,8 @@
+// app/app.h
+#ifndef APP_H
+#define APP_H
+
+int app_main(void);
+int orchestrator(void);
+
+#endif

@@ -1,0 +1,6 @@
+Index:
+  Background: Build
+  StandardLibrary: No
+CompileFlags:
+  Add: [-I., -Wno-unused-function, -Wno-unused-but-set-variable]
+  Remove: [-fdump-rtl-expand, -fstack-usage]

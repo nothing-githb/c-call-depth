@@ -1,0 +1,37 @@
+{
+  "_comment": "fpkinds.c'deki farklı fp tiplerini bağlama örnekleri. Satır numaraları fpkinds/src/fpkinds.c'ye göredir; kodu düzenlersen güncelle. Bunu kullanmak için .vscode/settings.json'da cCallDepth.fpOverridesPath = \"fpkinds/fp-overrides.json\" yap.",
+
+  "overrides": [
+    {
+      "_kind": "ARRAY TABLE — daralt: array_dispatch yalnızca handler_large'a",
+      "caller": "fp_array_dispatch",
+      "file": "fpkinds.c",
+      "line": 26,
+      "targets": ["handler_large"]
+    },
+    {
+      "_kind": "PARAMETER CALLBACK — ekle: libclang param fp'yi bulamaz, elle bağla",
+      "caller": "fp_param_apply",
+      "file": "fpkinds.c",
+      "line": 50,
+      "targets": ["handler_large"]
+    },
+    {
+      "_kind": "RETURNED POINTER — gerçek hedeflere bağla (pick döndürür)",
+      "caller": "fp_returned_dispatch",
+      "file": "fpkinds.c",
+      "line": 81,
+      "targets": ["handler_small", "handler_large"]
+    },
+    {
+      "_kind": "GLOBAL POINTER — KOŞULLU: hangi handler aktif, yola bağlı",
+      "caller": "fp_global_dispatch",
+      "file": "fpkinds.c",
+      "line": 69,
+      "conditional": [
+        { "when": { "callerContains": "fp_global_set_heavy" }, "targets": ["handler_large"] },
+        { "when": { "fromRoot": "fpkinds_root_a" }, "targets": ["handler_small"] }
+      ]
+    }
+  ]
+}

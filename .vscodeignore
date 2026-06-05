@@ -1,0 +1,15 @@
+node_modules/**
+test/**
+workspace/**
+src/**
+.vscode/**
+.git/**
+*.vsix
+tsconfig.json
+run-all.js
+**/*.map
+.gitignore
+PUBLISHING.md
+**/__pycache__/**
+**/*.pyc
+CLAUDE.md

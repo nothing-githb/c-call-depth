@@ -1,0 +1,8 @@
+{
+  "cCallDepth.suDirectory": "build",
+  "cCallDepth.rootPatterns": ["**/public/**", "**/app/**", "**/deep/**"],
+  "cCallDepth.fpOverridesPath": "fpkinds/fp-overrides.json",
+  "cCallDepth.logLevel": "info",
+  "cCallDepth.displayMode": "decoration",
+  "cCallDepth.pathsMaxDepth": 160
+}

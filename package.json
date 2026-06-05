@@ -1,0 +1,205 @@
+{
+  "name": "c-call-depth",
+  "displayName": "C Call Depth & Stack Hints",
+  "description": "Static call-depth and -fstack-usage info as decorations or hover popups next to C functions, plus a side panel for function lookup.",
+  "version": "1.33.0",
+  "publisher": "HALISTAHASAHIN",
+  "license": "MIT",
+  "author": {
+    "name": "Halis Taha Sahin"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nothing-githb/c-call-depth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nothing-githb/c-call-depth/issues"
+  },
+  "homepage": "https://github.com/nothing-githb/c-call-depth#readme",
+  "keywords": [
+    "c",
+    "call graph",
+    "stack usage",
+    "call depth",
+    "static analysis",
+    "embedded",
+    "fstack-usage",
+    "libclang"
+  ],
+  "icon": "icons/icon.png",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Visualization"
+  ],
+  "extensionDependencies": [
+    "llvm-vs-code-extensions.vscode-clangd"
+  ],
+  "activationEvents": [
+    "onLanguage:c"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "C Call Depth",
+      "properties": {
+        "cCallDepth.suDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Directory to scan recursively for .su files (produced by gcc/clang -fstack-usage). Relative paths resolve against the workspace root. Empty disables stack-usage analysis. Typical values: \"build\", \"out\", \"_build\"."
+        },
+        "cCallDepth.rootPatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Glob patterns for header (.h) files whose declared functions become 'pinned roots' — treated as depth=1 entry points regardless of who calls them. Use to declare module boundaries, e.g. [\"**/public/**\", \"**/api/**\"]."
+        },
+        "cCallDepth.displayMode": {
+          "type": "string",
+          "enum": ["decoration", "hover"],
+          "enumDescriptions": [
+            "Colored pill at end of the function-name line (severity-coded by peak stack).",
+            "Show info only when the cursor hovers over a function name."
+          ],
+          "default": "decoration",
+          "description": "How call-depth and stack info is shown next to function definitions."
+        },
+        "cCallDepth.stackThresholds.warn": {
+          "type": "number",
+          "default": 1024,
+          "description": "Peak-stack bytes below or equal to this render green; above renders yellow."
+        },
+        "cCallDepth.stackThresholds.critical": {
+          "type": "number",
+          "default": 4096,
+          "description": "Peak-stack bytes above this render red."
+        },
+        "cCallDepth.maxDepthForCumulative": {
+          "type": "number",
+          "default": 64,
+          "description": "Safety limit for cumulative stack traversal in case of unbroken recursion."
+        },
+        "cCallDepth.pathsLimit": {
+          "type": "number",
+          "default": 5,
+          "description": "Max paths shown per direction (outgoing/incoming) in hover popups and side panel."
+        },
+        "cCallDepth.pathsMaxDepth": {
+          "type": "number",
+          "default": 32,
+          "description": "Maximum depth when enumerating callee/caller chains."
+        },
+        "cCallDepth.fpOverridesPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a JSON file of call-site function-pointer overrides for manual verification/narrowing. Format: {\"overrides\":[{\"caller\":\"fn\",\"file\":\"src.c\",\"line\":42,\"targets\":[\"a\",\"b\"]}]}. Empty = use <workspace>/fp-overrides.json if present."
+        },
+        "cCallDepth.logLevel": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "enumDescriptions": [
+            "Verbose: per-entry .su match details, per-poll LSP counts.",
+            "Phase summaries, counts, warnings.",
+            "Only warnings and errors.",
+            "Only errors."
+          ],
+          "default": "info",
+          "description": "Verbosity of the C Call Depth output channel."
+        },
+        "cCallDepth.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Python 3 interpreter used for the 'python-cli' backend."
+        },
+        "cCallDepth.libclangPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to libclang.so/.dylib/.dll for the 'python-cli' backend — either the library file itself or the directory containing it. On Windows, pointing at the directory lets the loader find libclang.dll's sibling DLLs. Leave empty to auto-detect (the pip 'libclang' package ships one). Only used by the python-cli backend."
+        },
+        "cCallDepth.clangArgs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra arguments passed to libclang when parsing, e.g. [\"-DUNIT_TEST=1\", \"-isystem/opt/toolchain/include\"]. compile_commands.json flags are used automatically; these are added on top. Use -isystem/-I here if your compile_commands.json lacks needed include paths."
+        },
+        "cCallDepth.compileCommandsDir": {
+          "type": "string",
+          "default": "",
+          "description": "Path to compile_commands.json, or the directory containing it, for the 'python-cli' backend (relative to the workspace or absolute). Defaults to the workspace root, then a 'build' subdir. The backend analyzes exactly the translation units listed there."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "cCallDepth.refresh",
+        "title": "C Call Depth: Refresh analysis"
+      },
+      {
+        "command": "cCallDepth.clearCacheAndRefresh",
+        "title": "C Call Depth: Clear cache and refresh (full re-parse)"
+      },
+      {
+        "command": "cCallDepth.focusSidePanel",
+        "title": "C Call Depth: Focus side panel"
+      },
+      {
+        "command": "cCallDepth.showOutput",
+        "title": "C Call Depth: Show log"
+      },
+      {
+        "command": "cCallDepth.exportReport",
+        "title": "C Call Depth: Export report (CSV / HTML)"
+      },
+      {
+        "command": "cCallDepth.generateFpOverrides",
+        "title": "C Call Depth: Generate fp-overrides template"
+      },
+      {
+        "command": "cCallDepth.openGraph",
+        "title": "C Call Depth: Open call graph"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cCallDepth.openGraph",
+          "when": "editorLangId == c",
+          "group": "navigation@9"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cCallDepthContainer",
+          "title": "C Call Depth",
+          "icon": "icons/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "cCallDepthContainer": [
+        {
+          "id": "cCallDepth.sidePanel",
+          "name": "Function lookup",
+          "type": "webview"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "node run-all.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^3.9.1",
+    "jsdom": "^24.0.0",
+    "typescript": "^5.3.0"
+  }
+}
