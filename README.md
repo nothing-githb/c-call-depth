@@ -504,3 +504,9 @@ Use it as a fast review aid during development. For Level A/B certification
 evidence, use a qualified static stack analyzer (e.g. AbsInt StackAnalyzer),
 and treat the annotations file and exported reports as review artifacts —
 they cross-check nicely against a qualified tool's output.
+
+## Development note
+
+This extension was developed with the assistance of AI (Anthropic's Claude).
+All output should be reviewed before being relied upon — and, as noted above,
+this is an engineering aid, **not** a tool-qualified analyzer.
