@@ -8,7 +8,7 @@
 //   - click a node      → refocus the graph on it
 //   - double-click node → open its source
 //   - depth sliders     → expand/contract how many caller/callee hops show
-//   - severity coloring  by peak stack; recursion & indirect edges marked
+//   - severity coloring  by peak stack; indirect (fp) edges marked
 
 import * as vscode from "vscode";
 import {
@@ -273,11 +273,9 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
   /* Manually bound (verified) fp edge: exact, not over-approximated. Solid
      green so it reads as "confirmed" vs the dashed over-approximated fp edge. */
   .edge.fp-verified { stroke: var(--vscode-charts-green, #2ea043); stroke-dasharray: none; stroke-width: 1.8; }
-  .edge.recursive { stroke: var(--vscode-charts-red, #e2504a); stroke-width: 1.8; }
   .edge.cross { opacity: 0.22; stroke-dasharray: 2 4; }
   .edge-arrow.cross { opacity: 0.22; }
   .edge-arrow { fill: var(--vscode-panel-border); }
-  .edge-arrow.recursive { fill: var(--vscode-charts-red, #e2504a); }
   /* Hover path highlighting */
   .node-rect, .edge, .edge-arrow, .node-label, .node-sub { transition: opacity 0.12s; }
   g.dimmed { opacity: 0.18; }
@@ -339,15 +337,11 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
     <label class="hop-ctl" style="cursor:pointer">
       <input type="checkbox" id="group-files" style="margin:0 4px 0 0" />file groups
     </label>
-    <label class="hop-ctl" style="cursor:pointer">
-      <input type="checkbox" id="rec-only" style="margin:0 4px 0 0" />recursion only
-    </label>
     <div id="legend">
       <span><span class="legend-dot" style="background:#4caf50"></span>ok</span>
       <span><span class="legend-dot" style="background:#ffa726"></span>warn</span>
       <span><span class="legend-dot" style="background:#ef5350"></span>critical</span>
       <span><span class="legend-dot" style="background:#888"></span>no stack</span>
-      <span><span class="legend-line" style="background:var(--vscode-charts-red,#e2504a)"></span>recursion</span>
       <span><span class="legend-line" style="background:var(--vscode-charts-green,#2ea043)"></span>fp bound ✓</span>
       <span><span class="legend-line" style="background:var(--vscode-descriptionForeground);border-top:2px dashed"></span>fp (over-approx)</span>
       <span>📌/⚓ root</span>
@@ -631,7 +625,6 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
   // in a labeled frame. Node fill/stroke is ALWAYS by severity (stack); the
   // file palette is used only for the frames. Stable per-file color.
   let groupFiles = false;
-  let recOnly = false;
   const FILE_PALETTE = [
     '#4aa3ff', '#ff8a65', '#9ccc65', '#ba68c8', '#ffd54f', '#4db6ac',
     '#f06292', '#7986cb', '#a1887f', '#90a4ae', '#dce775', '#4fc3f7',
@@ -659,34 +652,13 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
   const NODE_W = 200, NODE_H = 38, X_GAP = 90, Y_GAP = 16;
   function layoutAndRender() {
     viewport.innerHTML = '';
-    // Recursion-only view: keep just the nodes in a cycle and the edges that
-    // participate in one. We swap current for a filtered copy during render,
-    // then restore it (so toggling off restores the full graph).
-    const fullGraph = current;
-    if (recOnly) {
-      const recEdges = (current.edges || []).filter(e => e.recursive);
-      const keep = new Set();
-      for (const e of recEdges) { keep.add(e.from); keep.add(e.to); }
-      // Also keep nodes flagged recursive even if their cycle edge was pruned
-      // by the hop limit (defensive).
-      for (const n of (current.nodes || [])) if (n.recursive) keep.add(n.name);
-      current = {
-        focus: current.focus,
-        nodes: (current.nodes || []).filter(n => keep.has(n.name)),
-        edges: recEdges
-      };
-    }
     if (!current.nodes || current.nodes.length === 0) {
-      if (recOnly) { current = fullGraph; showEmpty('No recursion in this neighborhood.'); return; }
       showEmpty();
       return;
     }
     hideEmpty();
-    // Restore the full graph object once layout has read what it needs. We do
-    // this at the end via try/finally-style: capture filtered locals up front.
     const renderNodes = current.nodes;
     const renderEdges = current.edges;
-    current = fullGraph;  // restore immediately; use renderNodes/renderEdges below
     // Extra spacing when file frames are on, so labels/borders don't collide.
     const yGap = groupFiles ? 34 : Y_GAP;
     const xGap = groupFiles ? 130 : X_GAP;
@@ -846,7 +818,7 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
     for (const e of drawEdges) {
       const a = pos.get(e.from), b = pos.get(e.to);
       if (!a || !b) continue;
-      const cls = 'edge' + (e.indirect ? ' indirect' : '') + (e.fpVerified ? ' fp-verified' : '') + (e.recursive ? ' recursive' : '') + (e.offFocus ? ' cross' : '');
+      const cls = 'edge' + (e.indirect ? ' indirect' : '') + (e.fpVerified ? ' fp-verified' : '') + (e.offFocus ? ' cross' : '');
       let d, arrowD;
       if (e.from === e.to) {
         // Self-loop: a small rounded arc on top of the node so it's clearly
@@ -924,9 +896,9 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
       viewport.appendChild(path);
       const arr = document.createElementNS(SVGNS, 'path');
       arr.setAttribute('d', arrowD);
-      arr.setAttribute('class', 'edge-arrow' + (e.recursive ? ' recursive' : '') + (e.offFocus ? ' cross' : ''));
+      arr.setAttribute('class', 'edge-arrow' + (e.offFocus ? ' cross' : ''));
       arrowLayer.appendChild(arr);
-      edgeEls.push({ from: e.from, to: e.to, path, arrow: arr, halo, recursive: !!e.recursive });
+      edgeEls.push({ from: e.from, to: e.to, path, arrow: arr, halo });
     }
 
     // Draw nodes.
@@ -1105,12 +1077,6 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
   const groupChk = document.getElementById('group-files');
   groupChk.addEventListener('change', () => {
     groupFiles = groupChk.checked;
-    layoutAndRender();
-  });
-
-  const recOnlyChk = document.getElementById('rec-only');
-  recOnlyChk.addEventListener('change', () => {
-    recOnly = recOnlyChk.checked;
     layoutAndRender();
   });
 

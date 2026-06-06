@@ -171,12 +171,20 @@ window.dispatchEvent(new window.MessageEvent("message", {
     ] } }
 }));
 const halos = window.document.querySelectorAll(".edge-halo");
-const recEdges = window.document.querySelectorAll(".edge.recursive");
+const edgesDrawn = window.document.querySelectorAll(".edge");
 check("every edge has a halo underlay (readability)", halos.length === 2, `got ${halos.length}`);
-check("self-loop is drawn and marked recursive", recEdges.length === 1, `got ${recEdges.length}`);
-const selfEdge = window.document.querySelector(".edge.recursive");
-const sd = selfEdge ? selfEdge.getAttribute("d") : "";
-check("self-loop is an arc above the node (curved, negative y)", /C/.test(sd) && /-/.test(sd), sd);
+check("both edges drawn (self-loop + forward)", edgesDrawn.length === 2, `got ${edgesDrawn.length}`);
+check("recursion coloring removed (no .recursive edges)",
+  window.document.querySelectorAll(".edge.recursive").length === 0);
+// The self-loop is still drawn as an arc over the node — identified
+// geometrically (no recursion class anymore): its path starts and ends at
+// nearly the same x (cx±16) and curves (C). Cross-layer edges span far in x.
+const isSelfArc = d => {
+  const nums = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  return nums.length >= 4 && /C/.test(d) && Math.abs(nums[0] - nums[nums.length - 2]) < 50;
+};
+const selfEdge = Array.from(edgesDrawn).map(e => e.getAttribute("d") || "").find(isSelfArc);
+check("self-loop is an arc above the node (curved, tight x-span)", !!selfEdge, selfEdge || "(none)");
 
 // Arrow heads must be drawn ON TOP of the nodes (in a later DOM position) so
 // they're never hidden behind a node box where an edge meets it.
@@ -286,9 +294,16 @@ check("self-loop is an arc above the node (curved, negative y)", /C/.test(sd) &&
     ] }
   } }));
   const drawn = window.document.querySelectorAll(".edge").length;
-  const selfKept = window.document.querySelectorAll(".edge.recursive").length >= 1;
+  // self-loop (C→C) identified geometrically: tight x-span arc (no rec class).
+  const selfKept = Array.from(window.document.querySelectorAll(".edge")).some(e => {
+    const d = e.getAttribute("d") || "";
+    const nums = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+    return nums.length >= 4 && Math.abs(nums[0] - nums[nums.length - 2]) < 50;
+  });
   check("same-layer edge is not drawn (4 of 5 rendered)", drawn === 4, `drawn=${drawn}`);
   check("self-loop is still drawn when same-layer filtering is on", selfKept);
+  check("recursion coloring removed (no .recursive edges)",
+    window.document.querySelectorAll(".edge.recursive").length === 0);
 
   // Hovering must not light up a node reachable only through a HIDDEN same-layer
   // edge. Here A→B is same-layer (not drawn); hovering B must leave A dimmed,

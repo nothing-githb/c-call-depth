@@ -3,6 +3,14 @@
 All notable changes to the **C Call Depth & Stack Hints** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.34.0
+
+- Call-graph view: removed recursion-specific **coloring** (the red recursive
+  edge/arrow stroke and its legend entry) and the **"recursion only" filter**
+  toggle. Self-loops are still drawn as arcs and functions remain marked with the
+  `↻` glyph in node labels, tooltips, and the right-click info; the side panel's
+  recursion analysis is unchanged.
+
 ## 1.33.0
 
 - Restored the call-tree extension/activity-bar icons and the full README after

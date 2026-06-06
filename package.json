@@ -2,7 +2,7 @@
   "name": "c-call-depth",
   "displayName": "C Call Depth & Stack Hints",
   "description": "Static call-depth and -fstack-usage info as decorations or hover popups next to C functions, plus a side panel for function lookup.",
-  "version": "1.33.0",
+  "version": "1.34.0",
   "publisher": "HALISTAHASAHIN",
   "license": "MIT",
   "author": {
