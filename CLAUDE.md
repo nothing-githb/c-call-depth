@@ -170,14 +170,16 @@ graph/webview suites use jsdom and exercise the real `GRAPH_HTML` / `getHtml()`.
 
 ## Current state / open items
 
-- Version **1.33.0**. src ↔ out in sync. 16/16 tests pass from a clean clone.
-- Ready to publish: see **PUBLISHING.md**. Fill the `REPLACE_WITH_…`
-  placeholders in `package.json` and `LICENSE` first (`grep -rn REPLACE_WITH .`).
-- Possible cleanups (not yet done, verify before acting):
-  - `package.json` has `extensionDependencies: ["llvm-vs-code-extensions.vscode-clangd"]`
-    — the code no longer calls the clangd extension API, so this is likely
-    removable. Confirm by searching for clangd API usage before removing.
-  - Stale "clangd" wording in a few comments / `__main__.py` docstring.
+- Version **1.35.0**. Published to GitHub (nothing-githb/c-call-depth) +
+  Marketplace (publisher HALISTAHASAHIN). Placeholders filled.
+- Call-graph view: recursion-specific coloring + the "recursion only" filter
+  were removed (1.34.0); the `↻` text markers and side-panel recursion analysis
+  remain.
+- The `extensionDependencies` on clangd was **removed** (1.35.0) — confirmed no
+  clangd API usage in `src/`; user-facing "clangd" strings reworded to libclang.
+  (A few internal comments / `__main__.py` docstring may still say "clangd".)
+- Possible cleanups (not yet done):
+  - Add screenshots/GIFs to the README (biggest remaining Marketplace win).
 
 ---
 

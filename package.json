@@ -1,10 +1,11 @@
 {
   "name": "c-call-depth",
   "displayName": "C Call Depth & Stack Hints",
-  "description": "Static call-depth and -fstack-usage info as decorations or hover popups next to C functions, plus a side panel for function lookup.",
-  "version": "1.34.0",
+  "description": "Visualize C call depth, worst-case stack usage (-fstack-usage), and the call graph inline — built for embedded/firmware and DO-178C / ISO 26262 stack-usage review.",
+  "version": "1.35.0",
   "publisher": "HALISTAHASAHIN",
   "license": "MIT",
+  "pricing": "Free",
   "author": {
     "name": "Halis Taha Sahin"
   },
@@ -18,24 +19,35 @@
   "homepage": "https://github.com/nothing-githb/c-call-depth#readme",
   "keywords": [
     "c",
-    "call graph",
-    "stack usage",
-    "call depth",
-    "static analysis",
     "embedded",
+    "stack usage",
+    "call graph",
+    "call depth",
     "fstack-usage",
+    "static analysis",
+    "firmware",
+    "rtos",
+    "call hierarchy",
+    "stack analysis",
+    "DO-178C",
+    "ISO 26262",
+    "MISRA",
+    "safety-critical",
+    "cortex",
     "libclang"
   ],
   "icon": "icons/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.75.0"
   },
   "categories": [
-    "Programming Languages",
-    "Visualization"
-  ],
-  "extensionDependencies": [
-    "llvm-vs-code-extensions.vscode-clangd"
+    "Visualization",
+    "Linters",
+    "Other"
   ],
   "activationEvents": [
     "onLanguage:c"

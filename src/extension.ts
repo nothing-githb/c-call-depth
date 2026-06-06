@@ -603,7 +603,7 @@ function gotoFunction(name: string) {
   }
   if (fn.ghost) {
     vscode.window.showInformationMessage(
-      `"${name}" is a ghost record (.su-only, clangd never saw it). Cannot navigate.`
+      `"${name}" is a ghost record (.su-only, libclang never saw it). Cannot navigate.`
     );
     return;
   }

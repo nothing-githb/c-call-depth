@@ -3,6 +3,17 @@
 All notable changes to the **C Call Depth & Stack Hints** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.35.0
+
+- **Removed the hard `extensionDependencies` on the clangd extension.** The
+  analyzer uses libclang via the bundled Python CLI and never called the clangd
+  extension API, so the dependency only forced an unnecessary install. Reworded
+  the remaining user-facing "clangd" strings to "libclang".
+- Marketplace metadata: clearer keyword-rich description, expanded keywords
+  (embedded, firmware, rtos, DO-178C, ISO 26262, MISRA, …), more accurate
+  categories (Visualization / Linters / Other), gallery banner, and `Free`
+  pricing — all to improve discoverability. No behavior change.
+
 ## 1.34.0
 
 - Call-graph view: removed recursion-specific **coloring** (the red recursive

@@ -375,7 +375,7 @@ export function buildHtml(rows: Row[], cfg: ReportConfig, meta: {
   It is <em>not</em> a tool-qualified output. For DO-178C / ISO 26262 certification evidence,
   a qualified static stack analyzer (e.g. AbsInt StackAnalyzer) must be used.
   Limitations: indirect calls (function pointers) are not resolved; inline assembly stack
-  usage is not counted; the call graph is derived from clangd's best-effort analysis;
+  usage is not counted; the call graph is derived from libclang's best-effort analysis;
   recursion contributes a lower bound only.
 </div>
 </body>

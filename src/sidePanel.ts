@@ -1640,7 +1640,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
 
   function render(r) {
     if (!r) {
-      result.innerHTML = '<div class="empty">No function found by that name. Tip: clangd must have indexed it (and it must not be a ghost-only entry).</div>';
+      result.innerHTML = '<div class="empty">No function found by that name. Tip: libclang must have parsed it (and it must not be a ghost-only entry).</div>';
       currentOpenFn = '';
       saveOpenFn('');
       return;
