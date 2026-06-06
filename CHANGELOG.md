@@ -1,7 +1,15 @@
 # Changelog
 
-All notable changes to the **C Call Depth & Stack Hints** extension are
+All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
+
+## 1.36.0
+
+- Renamed the extension's display name from "C Call Depth & Stack Hints" to
+  **C Stack Analysis & Call Graph** for clearer discoverability ("stack
+  analysis" / "call graph" are what people search for). The extension **id**
+  (`HALISTAHASAHIN.c-call-depth`) is unchanged, so existing installs update in
+  place. No behavior change.
 
 ## 1.35.0
 

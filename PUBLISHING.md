@@ -30,7 +30,7 @@ grep -n "<YOUR NAME>" LICENSE     # should print nothing
 cd c-call-depth
 git init
 git add .
-git commit -m "Initial public release: C Call Depth & Stack Hints v1.33.0"
+git commit -m "Initial public release: C Stack Analysis & Call Graph"
 git branch -M main
 # create an empty repo named c-call-depth on GitHub first, then:
 git remote add origin https://github.com/<your-username>/c-call-depth.git

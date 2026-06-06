@@ -1,4 +1,4 @@
-# C Call Depth & Stack Hints
+# C Stack Analysis & Call Graph
 
 A VS Code extension that annotates C functions with **call depth** and
 **worst-case stack usage**, designed as a development-time aid for static

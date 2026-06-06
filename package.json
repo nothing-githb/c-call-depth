@@ -1,8 +1,8 @@
 {
   "name": "c-call-depth",
-  "displayName": "C Call Depth & Stack Hints",
+  "displayName": "C Stack Analysis & Call Graph",
   "description": "Visualize C call depth, worst-case stack usage (-fstack-usage), and the call graph inline — built for embedded/firmware and DO-178C / ISO 26262 stack-usage review.",
-  "version": "1.35.0",
+  "version": "1.36.0",
   "publisher": "HALISTAHASAHIN",
   "license": "MIT",
   "pricing": "Free",

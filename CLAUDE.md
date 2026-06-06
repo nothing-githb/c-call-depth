@@ -8,7 +8,7 @@ and the rules that prevent regressions.
 
 ## What this is
 
-A VS Code extension — **C Call Depth & Stack Hints** — for static call-depth and
+A VS Code extension — **C Stack Analysis & Call Graph** (id `c-call-depth`) — for static call-depth and
 stack-usage analysis of C code, aimed at embedded / DO-178C-style review work.
 It shows per-function stack usage and call depth as decorations/hovers, a side
 panel for lookup, and an interactive call-graph webview.
