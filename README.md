@@ -7,24 +7,27 @@ evidence).
 
 ![Interactive call graph — layered call hierarchy with per-function stack, severity colouring, and function-pointer edges](images/call-graph.png)
 
-Each function definition gets one or more inline pills:
+Each function definition gets one inline pill at the end of its name line:
 
 ```
-static int compute(int x)  ‹ via task_main · d:3 · f:48B · p:1.1KB ›
+static int compute(int x)  ‹ via task_main · f:48B · p:1.1KB › +2
 ```
 
-- **d** (depth) — longest call chain from a root to this function. `↻` marks
-  a function in a recursive cycle (`↻?` when the cycle is only via a
-  function-pointer table — see below).
 - **f** (frame) — own stack frame in bytes, from `-fstack-usage`.
 - **p** (peak) — worst-case cumulative stack from this function downward.
   A trailing `+` means a recursion cycle or the depth cap was hit, so the
   number is a lower bound.
-- **via ROOT** — when you pin roots, a function reachable from several roots
-  gets one pill per root, each with its own depth.
+- **via ROOT** — the entry point this peak is attributed to. The pill shows the
+  single **worst (highest-peak) root**; if the function is reachable from more
+  roots, a compact **`+N`** badge follows (here `+2`). The full per-root
+  breakdown — and each root's call **depth** — lives in the hover and the side
+  panel (depth is not shown inline).
 
-Markers: `📌` pinned root · `⚓` auto root (no callers) · `↻` certain recursion ·
-`↻?` possible recursion (fn-pointer cycle) · `≀` resolved indirect call.
+Markers in the pill: `📌` pinned root · `⚓` auto root (no callers) · `↻`
+recursion · `≀✓` all function-pointer call sites manually bound (exact) ·
+`≀~` has a function-pointer call that is **not** bound (worst-case estimate) ·
+`≀` indirect call(s) present. (The certain-vs-possible recursion distinction —
+`↻` vs `↻?` — is shown in the hover and side panel; see below.)
 
 ### Certain vs. possible recursion
 
@@ -295,9 +298,10 @@ bodies, ISRs, public API. Use `rootPatterns` (globs over header paths):
 
 Every function declared in a matching header becomes a **pinned root**: it gets
 depth 1 *and* remains a starting point for analysis even if other code calls
-it. A function reachable from several pinned roots is analyzed once per root,
-and shows one pill per root. This matters for stack analysis: each entry point
-is an independent worst-case origin.
+it. A function reachable from several pinned roots is analyzed once per root;
+the inline pill shows the worst (highest-peak) root with a `+N` badge for the
+rest, while the hover and side panel list every root with its own depth. This
+matters for stack analysis: each entry point is an independent worst-case origin.
 
 ## Function pointers
 
