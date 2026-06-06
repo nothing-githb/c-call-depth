@@ -13,3 +13,4 @@ PUBLISHING.md
 **/__pycache__/**
 **/*.pyc
 CLAUDE.md
+images/**

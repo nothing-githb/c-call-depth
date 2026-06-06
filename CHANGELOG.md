@@ -13,6 +13,9 @@ documented here. This project adheres to [Semantic Versioning](https://semver.or
   (embedded, firmware, rtos, DO-178C, ISO 26262, MISRA, …), more accurate
   categories (Visualization / Linters / Other), gallery banner, and `Free`
   pricing — all to improve discoverability. No behavior change.
+- README now shows screenshots of the interactive call graph, the side panel,
+  and an animated GIF of the hover call-flow trace (images excluded from the
+  packaged `.vsix`).
 
 ## 1.34.0
 

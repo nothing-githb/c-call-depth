@@ -5,6 +5,8 @@ A VS Code extension that annotates C functions with **call depth** and
 stack analysis (e.g. when working toward DO-178C / ISO 26262 stack-usage
 evidence).
 
+![Interactive call graph — layered call hierarchy with per-function stack, severity colouring, and function-pointer edges](images/call-graph.png)
+
 Each function definition gets one or more inline pills:
 
 ```
@@ -184,6 +186,8 @@ The side panel is split into two tabs that separate the two ways you use it:
 - **Overview** — the always-on, workspace-wide lists: **Top by peak stack**,
   **Recursive functions**, and **Unbound function pointers**. The tab shows a
   badge with how many functions the analysis covers.
+
+![Side panel — per-function detail: frame, peak, function-pointer call sites, per-root analysis, callers, and calls-into](images/side-panel.png)
 
 The last-used tab is remembered, and clicking a function in any Overview list
 jumps straight to its detail in the Function tab.
@@ -402,6 +406,8 @@ traceable record of every indirect-call resolution decision.
 node-link view of the call hierarchy. It shows a bounded neighborhood around
 a *focus* function: callers fan out to the left, callees to the right, with
 the focus in the center.
+
+![Hover any node to trace its directional call flow — callers up, callees down, the rest dims out](images/graph-hover.gif)
 
 - **Layered layout** — caller layers on the left (−1, −2…), focus in the
   middle, callee layers on the right (+1, +2…). Heavy nodes sort to the top
