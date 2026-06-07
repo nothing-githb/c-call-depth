@@ -203,7 +203,7 @@ export function buildHtml(rows: Row[], cfg: ReportConfig, meta: {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>C Call Depth Report — ${htmlEscape(meta.workspace)}</title>
+<title>C Stack Analysis &amp; Call Graph — Report — ${htmlEscape(meta.workspace)}</title>
 <style>
   :root {
     --bg: #ffffff; --fg: #1a1a1a; --muted: #6b6b6b;
@@ -266,7 +266,7 @@ export function buildHtml(rows: Row[], cfg: ReportConfig, meta: {
 </style>
 </head>
 <body>
-<h1>C Call Depth Report</h1>
+<h1>C Stack Analysis &amp; Call Graph — Report</h1>
 <div class="meta">
   Workspace: <code>${htmlEscape(meta.workspace)}</code> &nbsp;·&nbsp;
   Generated ${meta.generatedAt.toISOString()}

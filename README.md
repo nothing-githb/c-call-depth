@@ -196,6 +196,8 @@ deepest downward call chain (shown as `d:N`; a trailing `+` means a recursion
 cycle or the depth cap was hit). The last-used tab is remembered, and clicking a
 function in any Overview list jumps straight to its detail in the Function tab.
 
+![Side panel — Overview tab: Top by peak stack, Top by depth, Recursive functions, and Unbound function pointers](images/overview.png)
+
 ### Collapsible sections & incremental lists
 
 The side panel's sections — **Top by peak stack**, **Top by depth**,
@@ -348,6 +350,8 @@ the focus in the center.
   **self-call** (direct self-recursion) is drawn as a small arc on top of the
   node — clearly visible rather than a hidden line through the box.
 
+![Call graph with "file groups" on — same-file functions wrapped in per-file colored frames](images/call-graph-filegroups.png)
+
 You can open it focused on a specific function from: the editor right-click
 menu (on a C symbol), the **⊹ view in call graph** link in the hover, or the
 **graph ⊹** button in the side panel.
@@ -370,6 +374,8 @@ the most critical first. It first asks what to include:
 
 The standalone CLI mirrors this with `--report` / `--csv` and a `--roots-only`
 flag.
+
+![HTML report — per-root stack budget, severity-colored, with a summary and a not-tool-qualified disclaimer](images/report.png)
 
 ## Commands
 

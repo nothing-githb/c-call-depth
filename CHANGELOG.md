@@ -3,6 +3,14 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.39.2
+
+- Report: the exported HTML report title is now **"C Stack Analysis & Call
+  Graph — Report"** (was "C Call Depth Report"), matching the extension name.
+- Docs: added more README screenshots — the side-panel **Overview** tab, the
+  exported **HTML report**, and the call graph with **file groups** on. (Images
+  live in `images/`, excluded from the packaged `.vsix`.)
+
 ## 1.39.1
 
 - Docs: audited the README against the code and fixed the inconsistencies.
