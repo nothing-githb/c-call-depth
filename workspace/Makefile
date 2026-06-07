@@ -1,7 +1,7 @@
 CC := gcc
 CFLAGS := -O0 -Wall -fstack-usage -fdump-rtl-expand -I.
 BUILD := build
-SRCS := $(shell find modules common deep app drivers fpkinds deepchain recur manyfp peakverify fpadvanced fpstruct longcycle -name '*.c')
+SRCS := $(shell find modules common deep app drivers fpkinds deepchain recur manyfp peakverify fpadvanced fpstruct longcycle crosslevel -name '*.c')
 OBJS := $(patsubst %.c,$(BUILD)/%.o,$(SRCS))
 
 all: $(OBJS)

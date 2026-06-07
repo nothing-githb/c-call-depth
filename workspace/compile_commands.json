@@ -30,5 +30,6 @@
   { "directory": "REPLACE_WITH_ABSOLUTE_WORKSPACE_PATH", "file": "peakverify/src/peakverify.c", "command": "gcc -O0 -Wall -fstack-usage -fdump-rtl-expand -I. -c peakverify/src/peakverify.c" },
   { "directory": "REPLACE_WITH_ABSOLUTE_WORKSPACE_PATH", "file": "fpadvanced/src/fpadvanced.c", "command": "gcc -O0 -Wall -fstack-usage -fdump-rtl-expand -I. -c fpadvanced/src/fpadvanced.c" },
   { "directory": "REPLACE_WITH_ABSOLUTE_WORKSPACE_PATH", "file": "fpstruct/src/fpstruct.c", "command": "gcc -O0 -Wall -fstack-usage -fdump-rtl-expand -I. -c fpstruct/src/fpstruct.c" },
-  { "directory": "REPLACE_WITH_ABSOLUTE_WORKSPACE_PATH", "file": "longcycle/src/longcycle.c", "command": "gcc -O0 -Wall -fstack-usage -fdump-rtl-expand -I. -c longcycle/src/longcycle.c" }
+  { "directory": "REPLACE_WITH_ABSOLUTE_WORKSPACE_PATH", "file": "longcycle/src/longcycle.c", "command": "gcc -O0 -Wall -fstack-usage -fdump-rtl-expand -I. -c longcycle/src/longcycle.c" },
+  { "directory": "REPLACE_WITH_ABSOLUTE_WORKSPACE_PATH", "file": "crosslevel/src/crosslevel.c", "command": "gcc -O0 -Wall -fstack-usage -fdump-rtl-expand -I. -c crosslevel/src/crosslevel.c" }
 ]
