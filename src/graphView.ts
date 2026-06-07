@@ -1024,8 +1024,8 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
         openNodeMenu(e.clientX, e.clientY, n);
       });
       rect.addEventListener('click', () => blinkHint());
-      // Hover: highlight the paths through this node (its ancestors and
-      // descendants within the shown graph), dim everything else.
+      // Hover: highlight the focus's call flow that passes through this node
+      // (the focus↔node corridor + the node's own continuation), dim the rest.
       g.addEventListener('mouseenter', () => highlightConnected(n.name));
       g.addEventListener('mouseleave', () => clearHighlight());
       const title = document.createElementNS(SVGNS, 'title');

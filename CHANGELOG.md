@@ -3,6 +3,19 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.39.1
+
+- Docs: audited the README against the code and fixed the inconsistencies.
+  Removed the stale "Function pointers" section that documented a non-existent
+  `fp-annotations.json` / "Scan function-pointer call sites" workflow (the real
+  `fp-overrides.json` mechanism is documented earlier). Updated the hover
+  description to the focus-anchored corridor behaviour; documented the Overview
+  "Top by depth" list and the Callers/Calls-into stack/hops sort toggle;
+  completed the Commands and Settings tables (clear-cache & generate-template
+  commands, `stackThresholds.*` settings); corrected the call-graph right-click
+  menu labels, the "(0–6)" hop range, and a broken `table[i](x)` example. Also
+  refreshed the `fpOverridesPath` setting description to the caller+via key.
+
 ## 1.39.0
 
 - Function detail: the **Callers** and **Calls into** sections now have a

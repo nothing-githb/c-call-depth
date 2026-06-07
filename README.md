@@ -67,6 +67,10 @@ with **libclang** and extracts the call graph **directly from the AST**:
   through it is treated as potentially reaching any of those targets
   (worst-case over-approximation — the right default for stack analysis).
 
+There is no clangd, no language server, and no GCC `.expand` dependency. Stack
+frames come from `.su` files (`-fstack-usage`) and are matched to functions by
+name, file-qualified so same-named statics get their own frame.
+
 ### Manual function-pointer verification (overrides)
 
 The automatic over-approximation is safe but can be too broad — an indirect call
@@ -152,7 +156,7 @@ function), `callerContains` (a function present on the current call chain), and
 {
   "overrides": [
     {
-      "caller": "dispatch", "file": "m.c", "line": 7,
+      "caller": "dispatch", "file": "m.c", "via": "handler",
       "conditional": [
         { "when": { "fromRoot": "task_a" }, "targets": ["handler_a"] },
         { "when": { "fromRoot": "task_b" }, "targets": ["handler_b"] },
@@ -173,13 +177,7 @@ its condition holds — so `dispatch` reached from `task_a` includes only
 (root-independent) top-card peak still treats every conditional edge as active
 (absolute worst case).
 
-### Collapsible sections & incremental lists
-
-The side panel's sections — **Callers**, **Calls into**, **Recursion paths**,
-**Recursive functions**, and **Unbound function pointers** — have collapsible
-headers (click the ▶ to fold/unfold), and their open/closed state is remembered
-across lookups. Long lists show a first batch and offer **show N more / show all
-/ show less**, so a function with hundreds of callers stays readable.
+## Side panel
 
 The side panel is split into two tabs that separate the two ways you use it:
 
@@ -187,21 +185,38 @@ The side panel is split into two tabs that separate the two ways you use it:
   callers, calls-into, recursion paths, per-root analysis). Looking up or
   clicking any function opens it here, switching to this tab automatically.
 - **Overview** — the always-on, workspace-wide lists: **Top by peak stack**,
-  **Recursive functions**, and **Unbound function pointers**. The tab shows a
-  badge with how many functions the analysis covers.
+  **Top by depth**, **Recursive functions**, and **Unbound function pointers**.
+  The tab shows a badge with how many functions the analysis covers.
 
 ![Side panel — per-function detail: frame, peak, function-pointer call sites, per-root analysis, callers, and calls-into](images/side-panel.png)
 
-The last-used tab is remembered, and clicking a function in any Overview list
-jumps straight to its detail in the Function tab.
+The two **Top by …** lists rank every function by its own downward cost:
+**Top by peak stack** by worst-case cumulative bytes, and **Top by depth** by
+deepest downward call chain (shown as `d:N`; a trailing `+` means a recursion
+cycle or the depth cap was hit). The last-used tab is remembered, and clicking a
+function in any Overview list jumps straight to its detail in the Function tab.
 
-The **Top by peak stack**, **Recursive functions**, and **Unbound function
-pointers** lists, and the **Per-root analysis** table, each have a filter box:
-type part of an absolute file path (e.g. `src/drivers` or a full
-`/path/to/file.c`) — or a function name — to narrow the list to that location,
-with the matched path fragment highlighted. Clearing the box (or pressing
-Escape) restores the full view. The overview lists start collapsed so the tab
-opens compact; expand the ones you want, and that choice is remembered.
+### Collapsible sections & incremental lists
+
+The side panel's sections — **Top by peak stack**, **Top by depth**,
+**Callers**, **Calls into**, **Recursion paths**, **Recursive functions**, and
+**Unbound function pointers** — have collapsible headers (click the ▶ to
+fold/unfold), and their open/closed state is remembered across lookups. Long
+lists show a first batch and offer **show N more / show all / show less**, so a
+function with hundreds of callers stays readable.
+
+The **Callers** and **Calls into** sections also carry a **stack / hops** sort
+toggle in their headers: order the chains by deepest cumulative stack (`stack`,
+the default) or by longest call chain in hops (`hops`). Each section remembers
+its choice across functions.
+
+The **Top by peak stack**, **Top by depth**, **Recursive functions**, and
+**Unbound function pointers** lists, and the **Per-root analysis** table, each
+have a filter box: type part of an absolute file path (e.g. `src/drivers` or a
+full `/path/to/file.c`) — or a function name — to narrow the list to that
+location, with the matched path fragment highlighted. Clearing the box (or
+pressing Escape) restores the full view. The overview lists start collapsed so
+the tab opens compact; expand the ones you want, and that choice is remembered.
 
 Switching to another sidebar view and back no longer loses your place: the open
 function, the section collapse states, and the filters are retained, and the
@@ -209,10 +224,11 @@ detail view is restored automatically.
 
 ### Hover tooltips
 
-Hovering a node in the call graph (or a function name in the side panel) shows a
-tooltip with the function name plus a short summary: **Frame**, **Peak**, and
-role bits (📌 pinned / ⚓ auto root, recursive ↻, fp bound ✓ or fp estimated). The
-two views use the same wording so the information reads the same everywhere.
+Hovering a node in the call graph shows a tooltip with the function name plus a
+short summary: **Frame**, **Peak**, and role bits (📌 pinned / ⚓ auto root,
+recursive ↻, fp bound ✓ or fp estimated). The side panel shows the same
+**Frame** / **Peak** / recursion summary on its function links; the full root
+and fp role bits appear on the call-graph node hover.
 
 ### Per-root → call graph shortcut
 
@@ -222,67 +238,55 @@ callers hidden and callees expanded just deep enough to reach the function you
 were inspecting — so you see the exact root→…→function path. The target function
 is briefly pulsed/highlighted on arrival.
 
-There is no clangd, no LSP, and no GCC `.expand` dependency. Stack frames come
-from `.su` files and are matched to functions by name.
-
-```jsonc
-// .vscode/settings.json
-{
-  "cCallDepth.suDirectory": "build",
-  "cCallDepth.rootPatterns": ["**/app/**"]
-}
-```
-
 ## Configuration & standalone use
 
 The bundled analyzer (`cdepth_cli`) can run both inside the extension and as a
 standalone command. Configure via VS Code settings:
 
-  ```jsonc
-  {
-    "cCallDepth.pythonPath": "python3",
-    "cCallDepth.suDirectory": "build",
-    "cCallDepth.rootPatterns": ["**/app/**"],
-    "cCallDepth.libclangPath": "",
-    "cCallDepth.clangArgs": []
-  }
-  ```
+```jsonc
+{
+  "cCallDepth.pythonPath": "python3",
+  "cCallDepth.suDirectory": "build",
+  "cCallDepth.rootPatterns": ["**/app/**"],
+  "cCallDepth.libclangPath": "",
+  "cCallDepth.clangArgs": []
+}
+```
 
-  Parse flags come entirely from `compile_commands.json` (per file) — the
-  analyzer does not probe the system compiler for default include paths. A
-  correct `compile_commands.json` already carries the include paths the build
-  uses; if yours is missing some (or you target a cross toolchain), add the
-  needed `-isystem`/`-I` flags via `clangArgs`.
+Parse flags come entirely from `compile_commands.json` (per file) — the analyzer
+does not probe the system compiler for default include paths. A correct
+`compile_commands.json` already carries the include paths the build uses; if
+yours is missing some (or you target a cross toolchain), add the needed
+`-isystem`/`-I` flags via `clangArgs`.
 
-  - `libclangPath` overrides libclang auto-detection — give the
-    `libclang.so/.dylib/.dll` file or its directory (rarely needed).
-  - `clangArgs` adds extra parse flags on top of `compile_commands.json`.
-  - Warning flags from `compile_commands.json` (`-Wall`, `-Werror`,
-    `-Wno-...`) are dropped automatically — they're irrelevant to the call
-    graph and some are GCC-specific.
+- `libclangPath` overrides libclang auto-detection — give the
+  `libclang.so/.dylib/.dll` file or its directory (rarely needed).
+- `clangArgs` adds extra parse flags on top of `compile_commands.json`.
+- Warning flags from `compile_commands.json` (`-Wall`, `-Werror`, `-Wno-...`)
+  are dropped automatically — they're irrelevant to the call graph and some are
+  GCC-specific.
 
-  The same analyzer runs standalone from a terminal (useful for CI):
+The same analyzer runs standalone from a terminal (useful for CI):
 
-  ```bash
-  pip install libclang
-  python -m cdepth_cli --root ./src --su-dir ./build \
-      --root-pattern '**/app/**' --report stack.html --out result.json
-  ```
+```bash
+pip install libclang
+python -m cdepth_cli --root ./src --su-dir ./build \
+    --root-pattern '**/app/**' --report stack.html --out result.json
+```
 
-  It analyzes exactly the translation units in `compile_commands.json` (set
-  `cCallDepth.compileCommandsDir` / `--compile-commands-dir` if it isn't at the
-  workspace root or a `build` subdir). If no `compile_commands.json` is found,
-  or it lists no usable files, it stops with an error rather than guessing.
+It analyzes exactly the translation units in `compile_commands.json` (set
+`cCallDepth.compileCommandsDir` / `--compile-commands-dir` if it isn't at the
+workspace root or a `build` subdir). If no `compile_commands.json` is found, or
+it lists no usable files, it stops with an error rather than guessing.
 
-  **Version matching.** If you point `libclangPath` at your own
-  `libclang.so/.dll`, its version should match the `clang.cindex` Python
-  bindings (the `libclang` pip package). A mismatch makes the native library
-  return AST node kinds the bindings don't know, surfacing as
-  `Unknown ... kind N` (e.g. `unknown template argument kind 350`). The
-  analyzer is defensive — it skips nodes it can't decode and keeps going — but
-  for complete results, either let it use the bundled library (leave
-  `libclangPath` empty) or install a matching `libclang` package version:
-  `pip install "libclang==<your-llvm-major>.*"`.
+**Version matching.** If you point `libclangPath` at your own
+`libclang.so/.dll`, its version should match the `clang.cindex` Python bindings
+(the `libclang` pip package). A mismatch makes the native library return AST
+node kinds the bindings don't know, surfacing as `Unknown ... kind N` (e.g.
+`unknown template argument kind 350`). The analyzer is defensive — it skips
+nodes it can't decode and keeps going — but for complete results, either let it
+use the bundled library (leave `libclangPath` empty) or install a matching
+`libclang` package version: `pip install "libclang==<your-llvm-major>.*"`.
 
 ## Pinned roots & per-root analysis
 
@@ -303,107 +307,6 @@ the inline pill shows the worst (highest-peak) root with a `+N` badge for the
 rest, while the hover and side panel list every root with its own depth. This
 matters for stack analysis: each entry point is an independent worst-case origin.
 
-## Function pointers
-
-Indirect calls (`fp(x)`, `ops->read(x)`, `table[i](https://example.invalid/x)`) are invisible to a
-plain static call graph. The extension resolves them from a reviewable
-annotations file.
-
-### 1. Scan for candidates
-
-Run **`C Call Depth: Scan function-pointer call sites`**. It scans your `.c`
-files, finds indirect call sites and address-taken functions, and writes a
-draft annotations file with every entry `approved: false`.
-
-### 2. Review and approve
-
-Open the annotations file and, for each call site, set `approved: true` and
-trim `targets` to the functions that can actually be called there:
-
-```jsonc
-{
-  "version": 1,
-  "callsites": [
-    {
-      "fp": "h",
-      "function": "dispatch_irq",
-      "file": "apps/isr.c",
-      "line": 52,
-      "targets": ["isr_timer", "isr_uart_rx", "isr_disk"],
-      "approved": true,
-      "note": "vector_table entries; see SRS-0100"
-    }
-  ]
-}
-```
-
-Approved targets become edges in the graph and count toward peak. Re-running
-the scanner never overwrites an approved entry — your review wins.
-
-### 3. Conditional (context-sensitive) bindings
-
-Sometimes a pointer's real target depends on **how** the call was reached. You
-express that with `conditionalBindings`. Two condition types:
-
-- `fromRoot(root)` — the analysis traversal started at pinned root `root`.
-- `reachedThrough(node)` — the path to the call site passes through `node`.
-
-Combine them with `and` / `or` (nestable). Example: `dispatch_irq`'s pointer
-resolves to `isr_timer` at boot (`system_init` context) but to any of three
-handlers at runtime (`runtime_loop` context):
-
-```jsonc
-{
-  "version": 1,
-  "callsites": [],
-  "conditionalBindings": [
-    {
-      "callsite": { "function": "dispatch_irq", "fp": "h" },
-      "target": "isr_timer",
-      "when": { "type": "fromRoot", "root": "system_init" },
-      "approved": true,
-      "note": "boot: only the timer vector is wired"
-    },
-    {
-      "callsite": { "function": "dispatch_irq", "fp": "h" },
-      "target": "isr_disk",
-      "when": {
-        "type": "and",
-        "conditions": [
-          { "type": "fromRoot", "root": "runtime_loop" },
-          { "type": "reachedThrough", "node": "net_init" }
-        ]
-      },
-      "approved": true,
-      "note": "runtime, only after the network path"
-    }
-  ]
-}
-```
-
-On paths where a binding's condition holds, the target edge is added and depth
-is path-accurate. On paths where **no** binding applies, the pointer stays
-unresolved (flagged `⁉`) — that path simply doesn't account for the pointer.
-Peak stack is computed as a **worst-case upper bound**: conditional targets
-are counted regardless of path, so peak never under-reports. The hover spells
-this out per function.
-
-### Where the annotations file lives
-
-By default `<workspaceRoot>/fp-annotations.json`. To use a different location
-set `cCallDepth.fpAnnotationsPath` (relative resolves against the workspace
-root; absolute is used as-is):
-
-```jsonc
-{
-  "cCallDepth.fpAnnotationsPath": ".cdepth/fp-annotations.json"
-}
-```
-
-The scanner writes to, and the analyzer reads from, this same path. The file
-is plain JSON, meant to be committed to version control and reviewed — it is a
-traceable record of every indirect-call resolution decision.
-
 ## Interactive call graph
 
 **`C Call Depth: Open call graph`** opens a full-panel, interactive
@@ -411,7 +314,7 @@ node-link view of the call hierarchy. It shows a bounded neighborhood around
 a *focus* function: callers fan out to the left, callees to the right, with
 the focus in the center.
 
-![Hover any node to trace its directional call flow — callers up, callees down, the rest dims out](images/graph-hover.gif)
+![Hover a node to light the focus's call path through it — the corridor in, its flow out, the rest dims](images/graph-hover.gif)
 
 - **Layered layout** — caller layers on the left (−1, −2…), focus in the
   middle, callee layers on the right (+1, +2…). Heavy nodes sort to the top
@@ -419,21 +322,25 @@ the focus in the center.
 - **Severity coloring** — node border/bar colored by peak stack
   (green/orange/red), gray when no stack data. Recursion marked `↻`,
   indirect (function-pointer) edges drawn dashed.
-- **Navigate** — right-click a node for actions: *Open source*, *Make root
-  (focus here)*, and *Show stack usage…* (opens the side-panel breakdown).
-  The header and footer of the menu show the function name, own frame, and
-  peak. A search box (top-left) jumps to any function.
-- **Trace paths** — hover a node to highlight the directional call flow through
-  it: callers leading up to it (each step shallower) and callees it reaches (each
-  step deeper); the rest dims out. Only edges that follow the hierarchy are lit —
-  same-level sibling calls and back-edges (e.g. a deep callee calling a shallower
-  one) stay dim, so the flow reads cleanly.
+- **Navigate** — right-click a node for actions: *Open source*, *Show details in
+  side panel*, and *Focus in call graph*. The menu header/footer show the
+  function name, own frame, and peak. A left-click just highlights the node's
+  call paths and flashes the bottom hint toward the right-click actions — it
+  doesn't refocus. A search box (top-left) jumps to any function.
+- **Trace paths** — hover a node to light only the focus's call flow that passes
+  through it: the corridor from the focus to that node, plus the node's own
+  continuation (its further callees if it's downstream, or its further callers
+  if it's upstream). Everything else — including the node's own callers/callees
+  that don't route through the focus — dims out. Hover the focus itself to light
+  its whole flow. Back-edges and same-level sibling edges always stay dim, so
+  the flow reads cleanly.
 - **File groups** — toggle "file groups" to wrap same-file nodes in labeled
   frames (one per file per column). Node colors stay severity-based; the
   frames are colored per file.
-- **Depth controls** — the "callers" and "callees" steppers expand or
-  contract how many hops each side shows (0–6). Nodes with hidden
-  callers/callees are marked `…`.
+- **Depth controls** — the "callers" and "callees" steppers expand or contract
+  how many hops each side shows (2 each by default; no fixed upper bound — very
+  large neighborhoods are capped by a node budget that marks the truncation).
+  Nodes with hidden callers/callees are marked `…`.
 - **Pan & zoom** — left-drag to pan, scroll to zoom; the view auto-fits on
   each refocus.
 - **Readable edges** — every call edge is drawn over a background-colored halo,
@@ -468,9 +375,11 @@ flag.
 
 | Command | What it does |
 |---|---|
-| `C Call Depth: Refresh analysis` | Re-run the full pipeline. |
+| `C Call Depth: Refresh analysis` | Re-run the full pipeline (incremental — unchanged files are cached). |
+| `C Call Depth: Clear cache and refresh (full re-parse)` | Drop the per-TU cache and re-parse every file from scratch. |
 | `C Call Depth: Focus side panel` | Open the lookup/explorer panel. |
 | `C Call Depth: Open call graph` | Open the interactive call-graph view. |
+| `C Call Depth: Generate fp-overrides template` | Write a starter `fp-overrides.json` of unresolved fp call sites. |
 | `C Call Depth: Export report (CSV / HTML)` | Write a per-root report. |
 | `C Call Depth: Show log` | Open the output log. |
 
@@ -478,14 +387,16 @@ flag.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `cCallDepth.suDirectory` | `""` | Directory scanned for `.su` files (stack frames). |
+| `cCallDepth.suDirectory` | `""` | Directory scanned for `.su` files (stack frames). Empty disables stack-usage analysis. |
 | `cCallDepth.compileCommandsDir` | `""` | Path to `compile_commands.json` or its directory. Empty = workspace root, then `build/`. |
 | `cCallDepth.rootPatterns` | `[]` | Header globs whose declared functions become pinned roots. |
 | `cCallDepth.pythonPath` | `python3` | Python 3 interpreter that runs the analyzer. |
 | `cCallDepth.libclangPath` | `""` | libclang `.so/.dylib/.dll` file or its directory. Empty = auto-detect. |
 | `cCallDepth.clangArgs` | `[]` | Extra parse flags appended to those from `compile_commands.json`. |
 | `cCallDepth.displayMode` | `decoration` | `decoration` (pills) or `hover`. |
-| `cCallDepth.maxDepthForCumulative` | `64` | Cap for cumulative-stack recursion. |
+| `cCallDepth.stackThresholds.warn` | `1024` | Peak ≤ this renders green; above renders orange (warn). |
+| `cCallDepth.stackThresholds.critical` | `4096` | Peak above this renders red (critical). |
+| `cCallDepth.maxDepthForCumulative` | `64` | Safety cap for cumulative-stack traversal under unbroken recursion. |
 | `cCallDepth.pathsLimit` | `5` | Paths shown per direction in hover/panel. |
 | `cCallDepth.pathsMaxDepth` | `32` | Max path length explored. Raise for very deep chains. |
 | `cCallDepth.fpOverridesPath` | `""` | JSON of call-site fp overrides (manual verification/narrowing). Empty = `<workspace>/fp-overrides.json` if present. |
@@ -512,7 +423,7 @@ This extension is **not a qualified tool**. The call graph is best-effort
 assembly stack usage is not counted, and recursion contributes a lower bound.
 Use it as a fast review aid during development. For Level A/B certification
 evidence, use a qualified static stack analyzer (e.g. AbsInt StackAnalyzer),
-and treat the annotations file and exported reports as review artifacts —
+and treat the `fp-overrides.json` file and exported reports as review artifacts —
 they cross-check nicely against a qualified tool's output.
 
 ## Development note
