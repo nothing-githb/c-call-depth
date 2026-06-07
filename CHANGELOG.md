@@ -3,6 +3,11 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.36.2
+
+- Renamed the **Output** channel (and its status-bar tooltip) from "C Call
+  Depth" to **C Stack Analysis & Call Graph**, matching the extension name.
+
 ## 1.36.1
 
 - Lowercased the `publisher` id (`HALISTAHASAHIN` → `halistahasahin`) so the

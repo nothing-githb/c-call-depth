@@ -78,7 +78,7 @@ export async function activate(context: vscode.ExtensionContext) {
     cacheDir = path.join(context.globalStorageUri.fsPath, "tu-cache");
     fs.mkdirSync(cacheDir, { recursive: true });
   } catch { cacheDir = ""; }
-  const channel = vscode.window.createOutputChannel("C Call Depth");
+  const channel = vscode.window.createOutputChannel("C Stack Analysis & Call Graph");
   context.subscriptions.push(channel);
   log = new Logger(channel);
 
@@ -281,7 +281,7 @@ export function deactivate() {
 function setStatus(text: string, severity?: "warning" | "error") {
   if (!statusBarItem) return;
   statusBarItem.text = `$(symbol-method) ${text}`;
-  statusBarItem.tooltip = "Click to view C Call Depth log";
+  statusBarItem.tooltip = "Click to view C Stack Analysis & Call Graph log";
   if (severity === "warning") {
     statusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
   } else if (severity === "error") {
