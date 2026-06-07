@@ -3,6 +3,13 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.36.1
+
+- Lowercased the `publisher` id (`HALISTAHASAHIN` → `halistahasahin`) so the
+  unique identifier renders as `halistahasahin.c-call-depth` everywhere.
+  Marketplace publisher ids are case-insensitive, so this is the same publisher
+  — existing installs update in place. No behavior change.
+
 ## 1.36.0
 
 - Renamed the extension's display name from "C Call Depth & Stack Hints" to

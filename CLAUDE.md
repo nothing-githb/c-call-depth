@@ -171,7 +171,7 @@ graph/webview suites use jsdom and exercise the real `GRAPH_HTML` / `getHtml()`.
 ## Current state / open items
 
 - Version **1.35.0**. Published to GitHub (nothing-githb/c-call-depth) +
-  Marketplace (publisher HALISTAHASAHIN). Placeholders filled.
+  Marketplace (publisher `halistahasahin`, lowercase). Placeholders filled.
 - Call-graph view: recursion-specific coloring + the "recursion only" filter
   were removed (1.34.0); the `↻` text markers and side-panel recursion analysis
   remain.
