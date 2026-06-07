@@ -3,6 +3,15 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.37.0
+
+- Call-graph hover is now **focus-anchored**: hovering a node highlights only the
+  focus node's call flow that passes **through** the hovered node. Hovering a
+  callee no longer lights up that callee's *other* callers that don't come from
+  the focus (the off-focus "caller→callee" edge stays dim) — only calls related
+  to the focus are shown. Hovering the focus still shows its whole flow; back-
+  edges and same-level siblings remain excluded.
+
 ## 1.36.2
 
 - Renamed the **Output** channel (and its status-bar tooltip) from "C Call

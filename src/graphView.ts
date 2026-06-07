@@ -448,16 +448,18 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
   }
   wireSearch();
 
-  // Highlight only the call HIERARCHY through the hovered node: the chain of
-  // callers that reach it (upstream) and the chain of callees it reaches
-  // (downstream). Edges that merely connect two nodes which both happen to be
-  // upstream/downstream — e.g. siblings at the same level calling each other,
-  // or a back-edge — are NOT part of the hovered node's path and stay dim.
+  // Highlight only the FOCUS node's directional call flow, restricted to the
+  // paths that pass THROUGH the hovered node. Hovering a callee shows the chain
+  // from the focus down to it and its own downstream — but NOT that callee's
+  // other callers that don't come from the focus (the off-focus "caller→callee"
+  // edge stays dim). Hovering a caller mirrors this toward the focus. Hovering
+  // the focus itself shows its whole flow (callers up + callees down).
+  // Back-edges and same-level sibling edges are always excluded (they're not a
+  // strict up/down step in the focus's hierarchy).
   function highlightConnected(name) {
-    // Build adjacency from the edges that are actually DRAWN (edgeEls), not from
+    // Adjacency from the edges that are actually DRAWN (edgeEls), not from
     // current.edges — same-layer edges are filtered out of the rendered graph,
-    // so a node reachable only through such a hidden edge must NOT light up
-    // (there'd be no visible connection explaining why it's bright).
+    // so a node reachable only through such a hidden edge must NOT light up.
     const fwd = new Map(), rev = new Map();
     for (const ee of edgeEls) {
       if (!fwd.has(ee.from)) fwd.set(ee.from, []);
@@ -465,36 +467,59 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
       if (!rev.has(ee.to)) rev.set(ee.to, []);
       rev.get(ee.to).push(ee.from);
     }
-    // Downstream set + BFS distance from the hovered node, going forward.
-    const down = new Set([name]);
-    const distDown = new Map([[name, 0]]);
-    let q = [name];
-    while (q.length) { const c = q.shift();
-      for (const n of (fwd.get(c) || [])) if (!down.has(n)) { down.add(n); distDown.set(n, distDown.get(c) + 1); q.push(n); } }
-    // Upstream set + BFS distance from the hovered node, going backward.
-    const up = new Set([name]);
-    const distUp = new Map([[name, 0]]);
-    q = [name];
-    while (q.length) { const c = q.shift();
-      for (const p of (rev.get(c) || [])) if (!up.has(p)) { up.add(p); distUp.set(p, distUp.get(c) + 1); q.push(p); } }
+    const reach = (start, adj) => {
+      const seen = new Set([start]); const stack = [start];
+      while (stack.length) { const c = stack.pop();
+        for (const n of (adj.get(c) || [])) if (!seen.has(n)) { seen.add(n); stack.push(n); } }
+      return seen;
+    };
+    const bfsDist = (start, adj) => {
+      const dist = new Map([[start, 0]]); const q = [start];
+      while (q.length) { const c = q.shift();
+        for (const n of (adj.get(c) || [])) if (!dist.has(n)) { dist.set(n, dist.get(c) + 1); q.push(n); } }
+      return dist;
+    };
+    // Distances from the FOCUS (not the hovered node) define the hierarchy:
+    // callee-side gets deeper downstream, caller-side gets deeper upstream.
+    const focus = current.focus;
+    const distDown = bfsDist(focus, fwd);   // focus → callees
+    const distUp = bfsDist(focus, rev);     // callers → focus
+    const downF = new Set(distDown.keys()); // reachable from focus (callee side)
+    const upF = new Set(distUp.keys());     // reaches focus (caller side)
 
-    const keep = new Set([...down, ...up]);
+    // Build the set of nodes to keep bright = the focus's flow through "name".
+    const keep = new Set([focus, name]);
+    if (name === focus) {
+      for (const n of downF) keep.add(n);
+      for (const n of upF) keep.add(n);
+    } else if (downF.has(name)) {
+      // hovered node is a callee: focus→name corridor + name's own downstream.
+      const ancName = reach(name, rev);
+      for (const n of downF) if (ancName.has(n)) keep.add(n);
+      for (const n of reach(name, fwd)) keep.add(n);
+    } else if (upF.has(name)) {
+      // hovered node is a caller: name→focus corridor + name's own upstream.
+      const descName = reach(name, fwd);
+      for (const n of upF) if (descName.has(n)) keep.add(n);
+      for (const n of reach(name, rev)) keep.add(n);
+    }
+
     for (const [nm, g] of nodeEls) {
       g.classList.toggle('dimmed', !keep.has(nm));
       g.classList.toggle('hl-node', nm === name);
     }
-    // An edge from->to is part of the hovered node's flow only when it moves
-    // strictly DEEPER in the callee direction (downstream) or strictly SHALLOWER
-    // toward the node in the caller direction (upstream). Using a strict depth
-    // change (not "exactly one level") keeps real skip-level forward calls but
-    // excludes back-edges — e.g. a level-3 callee calling a level-2 node — and
-    // same-level sibling edges, which are not part of the directional flow.
+    // Light an edge only when both endpoints are in the kept corridor AND it is
+    // a strict step in the focus's hierarchy (deeper downstream / shallower
+    // upstream) — so back-edges and same-level siblings stay dim.
     for (const ee of edgeEls) {
-      const downStep = down.has(ee.from) && down.has(ee.to) &&
-                       distDown.get(ee.to) > distDown.get(ee.from);
-      const upStep = up.has(ee.from) && up.has(ee.to) &&
-                     distUp.get(ee.from) > distUp.get(ee.to);
-      const active = downStep || upStep;
+      let active = false;
+      if (keep.has(ee.from) && keep.has(ee.to)) {
+        const downStep = downF.has(ee.from) && downF.has(ee.to) &&
+                         distDown.get(ee.to) > distDown.get(ee.from);
+        const upStep = upF.has(ee.from) && upF.has(ee.to) &&
+                       distUp.get(ee.from) > distUp.get(ee.to);
+        active = downStep || upStep;
+      }
       ee.path.classList.toggle('edge-hl', active);
       ee.path.classList.toggle('edge-dim', !active);
       ee.arrow.classList.toggle('edge-hl', active);

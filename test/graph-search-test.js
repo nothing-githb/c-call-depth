@@ -233,10 +233,12 @@ check("self-loop is an arc above the node (curved, tight x-span)", !!selfEdge, s
         `dirs=${dirs.join(",")}`);
 }
 
-// Hover highlights ONLY the directional call flow through the focus node:
-// strictly deeper in the callee direction, strictly shallower toward it in the
-// caller direction. Back-edges (a level-3 callee calling a level-2 node) and
-// same-level sibling edges are excluded. Mirrors highlightConnected.
+// Hovering the FOCUS highlights its directional call flow: strictly deeper in
+// the callee direction, strictly shallower toward it in the caller direction.
+// Back-edges (a level-3 callee calling a level-2 node) and same-level sibling
+// edges are excluded. Mirrors highlightConnected's focus-hover branch (these
+// cases all hover the focus "F"). Non-focus hover is covered by the corridor
+// tests below.
 {
   function activeEdges(edges, name) {
     const fwd = new Map(), rev = new Map();
@@ -352,6 +354,44 @@ check("self-loop is an arc above the node (curved, tight x-span)", !!selfEdge, s
   const dim = window.document.querySelectorAll(".edge.edge-dim").length;
   check("real hover: 3 forward-flow edges highlighted (F→A,A→B,B→C)", hl === 3, `hl=${hl}`);
   check("real hover: the level-3→level-2 back-edge is dimmed", dim === 1, `dim=${dim}`);
+}
+
+// Corridor hover (the fix): hovering a callee lights ONLY the focus→callee
+// path, NOT that callee's other callers that don't come from the focus. Here P
+// calls both the focus F and the callee A; hovering A must highlight only F→A
+// and dim P→A (and P→F), with P left dim.
+{
+  window.dispatchEvent(new window.MessageEvent("message", { data: {
+    type: "graph", focus: "F", thresholds: { warn: 1024, critical: 4096 },
+    names: ["P", "F", "A"],
+    data: { focus: "F", nodes: [
+      { name: "P", stackBytes: 32, peak: 64, layer: -1 },
+      { name: "F", isFocus: true, stackBytes: 32, peak: 64, layer: 0 },
+      { name: "A", stackBytes: 32, peak: 32, layer: 1 }
+    ], edges: [
+      { from: "P", to: "F", offFocus: false },
+      { from: "F", to: "A", offFocus: false },
+      { from: "P", to: "A", offFocus: false }   // off-focus caller of the callee
+    ] }
+  } }));
+  function nodeG3(label) {
+    for (const g of window.document.querySelectorAll("g")) {
+      // Skip container <g>s (viewport / arrow layer) — match only leaf node
+      // groups, else the first-rendered node's label can resolve to #viewport.
+      if (g.id === "viewport" || g.querySelector("g")) continue;
+      const t = g.querySelector("text");
+      if (t && t.textContent.trim() === label && g.querySelector("rect")) return g;
+    }
+    return null;
+  }
+  const gA = nodeG3("A");
+  if (gA) gA.dispatchEvent(new window.MouseEvent("mouseenter", { bubbles: true }));
+  const hlC = window.document.querySelectorAll(".edge.edge-hl").length;
+  const dimC = window.document.querySelectorAll(".edge.edge-dim").length;
+  check("corridor hover: only the focus→callee edge is highlighted", hlC === 1, `hl=${hlC}`);
+  check("corridor hover: off-focus caller edges (P→A, P→F) are dimmed", dimC === 2, `dim=${dimC}`);
+  check("corridor hover: the off-focus caller node P is dimmed",
+        nodeG3("P") && nodeG3("P").classList.contains("dimmed"));
 }
 
 console.log(failed === 0
