@@ -3,6 +3,12 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.37.1
+
+- Call graph: left-clicking a node now **flashes the bottom hint** ("drag to
+  pan … right-click for actions") to point you at the right-click actions (a
+  left-click only highlights paths, so this nudges discovery).
+
 ## 1.37.0
 
 - Call-graph hover is now **focus-anchored**: hovering a node highlights only the

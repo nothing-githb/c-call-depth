@@ -238,6 +238,13 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
   #canvas.grabbing { cursor: grabbing; }
   #hint { position: fixed; bottom: 8px; left: 12px; font-size: 11px;
     color: var(--vscode-descriptionForeground); pointer-events: none; }
+  /* Clicking a node flashes the hint to point the user at "right-click for actions". */
+  @keyframes hint-blink {
+    0%, 100% { color: var(--vscode-descriptionForeground); opacity: 0.85; }
+    25%, 75% { color: var(--vscode-charts-blue, #4aa3ff); opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  #hint.blink { animation: hint-blink 0.85s ease-in-out 2; }
   #budget-note { position: fixed; top: 40px; right: 12px; z-index: 5;
     max-width: 320px; padding: 6px 10px; font-size: 11px; border-radius: 4px;
     background: var(--vscode-inputValidation-warningBackground, rgba(212,170,60,0.2));
@@ -535,6 +542,18 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
       ee.arrow.classList.remove('edge-hl', 'edge-dim');
       if (ee.halo) ee.halo.classList.remove('edge-dim');
     }
+  }
+
+  // Flash the bottom hint ("drag to pan … right-click for actions") to nudge the
+  // user toward the right-click actions when they left-click a node (which only
+  // highlights paths). Re-trigger on rapid clicks via a reflow.
+  const hintEl = document.getElementById('hint');
+  if (hintEl) hintEl.addEventListener('animationend', () => hintEl.classList.remove('blink'));
+  function blinkHint() {
+    if (!hintEl) return;
+    hintEl.classList.remove('blink');
+    void hintEl.offsetWidth;   // force reflow so the animation restarts
+    hintEl.classList.add('blink');
   }
 
   // ── Node context menu (right-click) ──────────────────────────────────
@@ -996,13 +1015,15 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
       g.appendChild(sub);
 
       // Interactions: right-click opens a context menu (open source, make
-      // root, show stack). Left-click just highlights paths (via hover); it
-      // no longer refocuses, to avoid accidental navigation.
+      // root, show stack). Left-click just highlights paths (via hover) and
+      // flashes the bottom hint toward "right-click for actions"; it does not
+      // refocus, to avoid accidental navigation.
       rect.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
         openNodeMenu(e.clientX, e.clientY, n);
       });
+      rect.addEventListener('click', () => blinkHint());
       // Hover: highlight the paths through this node (its ancestors and
       // descendants within the shown graph), dim everything else.
       g.addEventListener('mouseenter', () => highlightConnected(n.name));

@@ -394,6 +394,25 @@ check("self-loop is an arc above the node (curved, tight x-span)", !!selfEdge, s
         nodeG3("P") && nodeG3("P").classList.contains("dimmed"));
 }
 
+// Clicking a node flashes the bottom hint ("drag to pan … right-click for
+// actions") to point the user at the right-click actions.
+{
+  window.dispatchEvent(new window.MessageEvent("message", { data: {
+    type: "graph", focus: "F", thresholds: { warn: 1024, critical: 4096 },
+    names: ["F", "A"],
+    data: { focus: "F", nodes: [
+      { name: "F", isFocus: true, stackBytes: 32, peak: 64, layer: 0 },
+      { name: "A", stackBytes: 32, peak: 32, layer: 1 }
+    ], edges: [ { from: "F", to: "A" } ] }
+  } }));
+  const hint = window.document.getElementById("hint");
+  const before = !!hint && hint.classList.contains("blink");
+  const rect = window.document.querySelector(".node-rect");
+  if (rect) rect.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  check("node click flashes the bottom hint (blink class added)",
+        !!hint && before === false && hint.classList.contains("blink"));
+}
+
 console.log(failed === 0
   ? "\nGRAPH-SEARCH: PASS — suggestions show, filter, navigate, and pick."
   : `\nGRAPH-SEARCH: FAIL — ${failed} check(s) failed.`);
