@@ -887,6 +887,20 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     background: var(--vscode-list-hoverBackground);
     border-style: solid;
   }
+  /* Sort toggle (Callers / Calls into headers): stack vs hops. */
+  .sort-ctl { display: inline-flex; gap: 2px; }
+  .sort-btn {
+    font-size: 10px; line-height: 15px; padding: 0 6px;
+    background: transparent; color: var(--vscode-descriptionForeground);
+    border: 1px solid var(--vscode-panel-border); border-radius: 3px;
+    cursor: pointer; font-family: inherit; text-transform: none; letter-spacing: 0;
+  }
+  .sort-btn:hover { background: var(--vscode-list-hoverBackground); }
+  .sort-btn.active {
+    background: var(--vscode-button-background, var(--vscode-badge-background));
+    color: var(--vscode-button-foreground, var(--vscode-badge-foreground));
+    border-color: transparent;
+  }
   /* Collapsible section headers (accordion). The arrow rotates; the content
      element (next sibling, or one marked data-collapse-body) toggles. */
   .section-label.collapsible { cursor: pointer; user-select: none; display: flex;
@@ -1146,6 +1160,9 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   let currentOpenFn = '';
   // Per-root table sort state. key: 'root' | 'depth' | 'peak'; dir: 1 asc / -1 desc.
   let currentPerRoot = null;
+  let lastDetail = null;        // last rendered function payload (for re-sort)
+  let callersSort = 'stack';    // 'stack' | 'hops' — Callers section sort
+  let callsIntoSort = 'stack';  // 'stack' | 'hops' — Calls into section sort
   let perRootSort = { key: 'peak', dir: -1 };
   let perRootFilter = '';   // absolute-path / name filter for the per-root table
   // Custom suggestion state
@@ -1748,6 +1765,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       return;
     }
     currentOpenFn = r.name;
+    lastDetail = r;
     saveOpenFn(r.name);
     switchTab('function');
     // A result is now showing, so close the autocomplete dropdown and clear its
@@ -1876,7 +1894,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       const ckey = opts.collapseKey || ('sec-' + label.replace(/[^a-z0-9]+/gi, '-').toLowerCase());
       let h = '<div class="section-label collapsible" data-collapse="' + ckey + '">' +
               '<span class="twist">▶</span>' + label +
-              ' <span class="count">' + badge + '</span>' + note + capped + '</div>';
+              ' <span class="count">' + badge + '</span>' + (opts.sortControls || '') + note + capped + '</div>';
       // Wrap all rows. Each row gets the rowClass; visibility is controlled
       // by the reveal wiring keyed off the wrapper's data-visible count.
       h += '<div class="reveal-wrap" data-collapse-body="' + ckey + '" data-visible="' + initial + '" data-total="' + totalCount + '">';
@@ -1895,7 +1913,18 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
 
     function renderSection(label, paths, grandTotal, cap) {
       const total = paths.length;
-      let rows = renderPaths(paths);
+      const isCallers = label === 'Callers';
+      const isCallsInto = label === 'Calls into';
+      // Sort client-side by the section's chosen key so the user can flip between
+      // "deepest stack" and "longest chain (hops)" without a re-query.
+      const sortBy = isCallers ? callersSort : isCallsInto ? callsIntoSort : 'stack';
+      const ordered = paths.slice();
+      if (sortBy === 'hops') {
+        ordered.sort((a, b) => (b.nodes.length - a.nodes.length) || ((b.totalStack || 0) - (a.totalStack || 0)));
+      } else {
+        ordered.sort((a, b) => ((b.totalStack || 0) - (a.totalStack || 0)) || (b.nodes.length - a.nodes.length));
+      }
+      let rows = renderPaths(ordered);
       // If the server capped the path list, say so prominently so the user
       // knows the view is incomplete (not just "these are all of them").
       if (typeof grandTotal === 'number' && grandTotal > total) {
@@ -1903,16 +1932,24 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
           grandTotal + ' — list capped at ' + (cap || total) +
           '; open the call graph to see all</div>' + rows;
       }
-      // The note clarifies WHAT each chain's stack number means, so it isn't
-      // confused with the per-root table's peak (which also includes the
-      // function's own downward subtree). Caller chains sum only the upward
-      // path; callee chains sum only the downward path.
-      const note = label === 'Callers' ? 'top by caller-path stack (upward only)'
-                 : label === 'Calls into' ? 'top by callee-path stack (downward only)'
-                 : 'top by stack';
+      // The meaning note (what each chain's stack sums) lives in the body so the
+      // header stays compact next to the sort toggle. Caller chains sum only the
+      // upward path; callee chains sum only the downward path.
+      const meaning = isCallers ? 'caller-path stack (upward only)'
+                    : isCallsInto ? 'callee-path stack (downward only)'
+                    : '';
+      if (meaning) rows = '<div class="hint" style="margin:2px 0 6px">' + meaning + '</div>' + rows;
+      // Sort toggle (Callers / Calls into only): stack vs hops.
+      let sortControls = '';
+      if (isCallers || isCallsInto) {
+        const sec = isCallers ? 'callers' : 'callsInto';
+        const mk = (by, lbl) => '<button class="sort-btn' + (sortBy === by ? ' active' : '') +
+          '" data-sortsec="' + sec + '" data-sortby="' + by +
+          '" title="Sort by ' + lbl + '">' + lbl + '</button>';
+        sortControls = '<span class="sort-ctl" title="Sort order">' + mk('stack', 'stack') + mk('hops', 'hops') + '</span>';
+      }
       return renderRevealSection(label, rows, total, {
-        note: note,
-        alwaysNote: true,
+        sortControls: sortControls,
         capAt: 500
       });
     }
@@ -1963,6 +2000,19 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     renderPerRootTable();
     wireRevealControls(result);
     wireCollapsibles(result);
+    // Sort toggles on the Callers / Calls into headers (stack vs hops). Clicking
+    // one flips the sort and re-renders the detail; stopPropagation keeps the
+    // click from also collapsing the section.
+    for (const btn of result.querySelectorAll('[data-sortsec]')) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sec = btn.getAttribute('data-sortsec');
+        const by = btn.getAttribute('data-sortby');
+        if (sec === 'callers') callersSort = by;
+        else if (sec === 'callsInto') callsIntoSort = by;
+        if (lastDetail) render(lastDetail);
+      });
+    }
     const openBtn = result.querySelector('[data-open]');
     if (openBtn) {
       openBtn.addEventListener('click', () => {

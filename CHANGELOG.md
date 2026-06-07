@@ -3,6 +3,12 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.39.0
+
+- Function detail: the **Callers** and **Calls into** sections now have a
+  **stack / hops** sort toggle — order the paths by total path stack (default)
+  or by chain length (hop count). The choice persists across functions.
+
 ## 1.38.0
 
 - Side panel **Overview** gained a **Top by depth** list next to "Top by peak

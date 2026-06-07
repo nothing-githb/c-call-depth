@@ -161,6 +161,30 @@ if (calleeHead) {
   check("Top-by-depth expands on click", tdBody && !tdBody.classList.contains("hidden"));
 }
 
+// Callers / Calls into sort toggle: stack (heaviest first) vs hops (longest chain first).
+{
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "result", payload: {
+    name: "tgt", file: "a.c", nameLine: 1, recursive: false, recursiveViaFp: false,
+    fpVerified: false, pinnedRoot: false, autoRoot: false, depth: 3,
+    stackBytes: 64, cumulativeStack: 900, cumulativeBounded: false, perRoot: [], cycles: [],
+    incoming: [
+      { nodes: ["aa", "bb", "tgt"], totalStack: 100, rootIsPinned: false },  // 3 hops, light
+      { nodes: ["cc", "tgt"], totalStack: 500, rootIsPinned: false }          // 2 hops, heavy
+    ],
+    outgoing: [], incomingTotal: 2, outgoingTotal: 0, pathCap: 500,
+    thresholdWarn: 1024, thresholdCritical: 4096
+  } } }));
+  const res = doc.getElementById("result");
+  const firstChain = () => { const c = res.querySelector(".path .path-chain"); return c ? c.textContent.replace(/\s+/g, " ").trim() : ""; };
+  const sortBtns = res.querySelectorAll('[data-sortsec="callers"]');
+  check("Callers section has a stack/hops sort toggle", sortBtns.length === 2, `got ${sortBtns.length}`);
+  check("Callers default sort is by stack (heaviest chain first)", /^cc/.test(firstChain()), firstChain());
+  const hopsBtn = Array.from(sortBtns).find(b => b.getAttribute("data-sortby") === "hops");
+  if (hopsBtn) hopsBtn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  check("Callers sort-by-hops reorders (longest chain first)", /^aa/.test(firstChain()), firstChain());
+  check("the hops sort button becomes active", !!res.querySelector('[data-sortsec="callers"][data-sortby="hops"].active'));
+}
+
 console.log(failed === 0
   ? "\nCOLLAPSIBLE-REVEAL: PASS — accordion + incremental reveal work for rec/unbound."
   : `\nCOLLAPSIBLE-REVEAL: FAIL — ${failed} check(s) failed.`);
