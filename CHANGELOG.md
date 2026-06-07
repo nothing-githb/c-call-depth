@@ -3,6 +3,13 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.38.0
+
+- Side panel **Overview** gained a **Top by depth** list next to "Top by peak
+  stack": functions ranked by their deepest downward call chain (shown as
+  `d:N`), with the same filter / collapsible / reveal behaviour. Surfaces the
+  functions that head the deepest call structures.
+
 ## 1.37.1
 
 - Call graph: left-clicking a node now **flashes the bottom hint** ("drag to

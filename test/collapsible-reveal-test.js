@@ -140,6 +140,27 @@ if (calleeHead) {
   check("Top-by-peak expands on click", topBody && !topBody.classList.contains("hidden"));
 }
 
+// Top-by-depth section (mirrors top-by-peak; ranks by downward depth, shows d:N).
+{
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "topDepth", entries: [
+    { name: "deepRoot", file: "/s/deep.c", depth: 150, bounded: false, pinnedRoot: true },
+    { name: "midFn",    file: "/s/m.c",    depth: 7,   bounded: false },
+    { name: "leafFn",   file: "/s/l.c",    depth: 1,   bounded: false }
+  ] } }));
+  const tdHead = w.document.querySelector('.section-label.collapsible[data-collapse="top-depth"]');
+  const tdBody = w.document.getElementById("top-depth-body");
+  const tdRows = w.document.querySelectorAll("#top-depth .top-row");
+  check("Top-by-depth section is collapsible", !!tdHead && !!tdBody);
+  check("Top-by-depth body collapsed by default", tdBody && tdBody.classList.contains("hidden"));
+  check("Top-by-depth renders all rows (3)", tdRows.length === 3, `rows=${tdRows.length}`);
+  check("Top-by-depth count badge reflects total", w.document.getElementById("top-depth-count").textContent === "3");
+  check("Top-by-depth shows depth as d:N, deepest first",
+        tdRows[0] && /d:150/.test(tdRows[0].querySelector(".stat-value").textContent),
+        tdRows[0] ? tdRows[0].querySelector(".stat-value").textContent : "no rows");
+  if (tdHead) tdHead.dispatchEvent(new w.Event("click"));
+  check("Top-by-depth expands on click", tdBody && !tdBody.classList.contains("hidden"));
+}
+
 console.log(failed === 0
   ? "\nCOLLAPSIBLE-REVEAL: PASS — accordion + incremental reveal work for rec/unbound."
   : `\nCOLLAPSIBLE-REVEAL: FAIL — ${failed} check(s) failed.`);

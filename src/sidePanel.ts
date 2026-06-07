@@ -181,6 +181,32 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
         // Send the full ranked list so the panel's path filter can search across all
         // functions; the panel shows only the top TOP_LIMIT when no filter is set.
         const top = ranked;
+        // Top-by-depth: rank by each function's OWN downward depth (longest callee
+        // chain beneath it) — the depth analogue of top-by-peak. Surfaces the
+        // functions that head the deepest call structures (e.g. deep chains).
+        const topDepth = [];
+        for (const [name, rec] of state.byName) {
+            if (rec.ghost)
+                continue;
+            const info = state.depth.get(name);
+            if (!info)
+                continue;
+            const depth = info.downDepth;
+            if (depth === undefined || depth === null)
+                continue;
+            topDepth.push({
+                name,
+                file: state.byName.get(name)?.file ?? "",
+                depth,
+                bounded: info.downDepthBounded === true,
+                peak: info.cumulativeStack,
+                recursive: info.recursive,
+                recursiveViaFp: info.recursiveViaFp === true,
+                pinnedRoot: info.isPinnedRoot === true,
+                autoRoot: info.isAutoRoot === true
+            });
+        }
+        topDepth.sort((a, b) => b.depth - a.depth);
         // Dedicated recursion list: every function in a cycle, certain (direct)
         // ones first, then possible (fp-only) ones, each sorted by peak desc.
         const recList = [];
@@ -232,6 +258,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
             pathsLimit: state.pathsLimit
         });
         this.view.webview.postMessage({ type: "top", entries: top });
+        this.view.webview.postMessage({ type: "topDepth", entries: topDepth });
         this.view.webview.postMessage({ type: "unboundFp", entries: unboundFp });
         this.view.webview.postMessage({ type: "recursion", entries: recList });
     }
@@ -941,6 +968,16 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       </div>
     </div>
 
+    <div id="top-depth-block" style="display:none">
+      <div class="section-label collapsible" data-collapse="top-depth"><span class="twist">▶</span>Top by depth <span id="top-depth-count" class="count"></span></div>
+      <div class="collapse-body" id="top-depth-body">
+        <div id="top-depth-note" class="hint" style="margin:2px 0 6px">Ranked by each function's deepest downward call chain (levels below it). A trailing + means a recursion cycle or the depth cap was hit.</div>
+        <input id="top-depth-filter" class="top-filter" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Filter by path or name (e.g. src/drivers or /abs/path)" />
+        <div id="top-depth"></div>
+      </div>
+    </div>
+
     <div id="rec-block" style="display:none">
       <div class="section-label collapsible" data-collapse="rec"><span class="twist">▶</span>Recursive functions <span id="rec-count" class="count"></span></div>
       <div class="collapse-body" id="rec-body">
@@ -1024,6 +1061,11 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   const topFilter = document.getElementById('top-filter');
   var topEntries = [];           // full ranked list (with file paths)
   var TOP_VIEW_LIMIT = 10;       // shown when no filter is active
+  const topDepthBlock = document.getElementById('top-depth-block');
+  const topDepthDiv = document.getElementById('top-depth');
+  const topDepthCount = document.getElementById('top-depth-count');
+  const topDepthFilter = document.getElementById('top-depth-filter');
+  var topDepthEntries = [];      // full ranked-by-depth list
   const recBlock = document.getElementById('rec-block');
   const recDiv = document.getElementById('rec');
   const recCount = document.getElementById('rec-count');
@@ -1171,6 +1213,8 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       }
     } else if (m.type === 'top') {
       renderTop(m.entries);
+    } else if (m.type === 'topDepth') {
+      renderTopDepth(m.entries);
     } else if (m.type === 'unboundFp') {
       renderUnboundFp(m.entries);
     } else if (m.type === 'recursion') {
@@ -1319,6 +1363,12 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     topFilter.addEventListener('input', () => renderTop());
     topFilter.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { topFilter.value = ''; renderTop(); }
+    });
+  }
+  if (topDepthFilter) {
+    topDepthFilter.addEventListener('input', () => renderTopDepth());
+    topDepthFilter.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { topDepthFilter.value = ''; renderTopDepth(); }
     });
   }
   if (recFilter) {
@@ -1627,6 +1677,58 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       });
     }
     wireCollapsibles(topBlock);
+  }
+
+  // Top-by-depth list — mirrors renderTop but ranks by each function's deepest
+  // downward call chain (levels), shown as "d:N" on the right. The Overview tab
+  // badge is owned by renderTop, so this does not touch it.
+  function renderTopDepth(entries) {
+    if (entries) topDepthEntries = entries;
+    if (!topDepthEntries || topDepthEntries.length === 0) { topDepthBlock.style.display = 'none'; return; }
+    topDepthBlock.style.display = '';
+    const filter = (topDepthFilter && topDepthFilter.value || '').trim().toLowerCase();
+    let list = topDepthEntries;
+    if (filter) {
+      list = topDepthEntries.filter(e =>
+        ((e.file || '').toLowerCase().indexOf(filter) !== -1) ||
+        (e.name.toLowerCase().indexOf(filter) !== -1));
+    }
+    const shown = filter ? list : list.slice(0, TOP_VIEW_LIMIT);
+    topDepthCount.textContent = filter
+      ? (list.length + ' match' + (list.length === 1 ? '' : 'es'))
+      : topDepthEntries.length;
+    if (shown.length === 0) {
+      topDepthDiv.innerHTML = '<div class="empty">No function matches that path or name.</div>';
+      return;
+    }
+    topDepthDiv.innerHTML = shown.map(e => {
+      const tags = [];
+      if (e.recursive) tags.push('<span class="top-flag" title="' +
+        (e.recursiveViaFp ? 'possible recursion (via fn-ptr)' : 'certain recursion') +
+        '">' + (e.recursiveViaFp ? '↻?' : '↻') + '</span>');
+      if (e.pinnedRoot) tags.push('<span class="top-flag">📌</span>');
+      else if (e.autoRoot) tags.push('<span class="top-flag">⚓</span>');
+      let pathRow = '';
+      if (filter && e.file) {
+        pathRow = '<div class="top-path" title="' + escape(e.file) + '">' +
+          highlight(e.file, filter) + '</div>';
+      }
+      const depthTxt = e.depth + (e.bounded ? '+' : '');
+      return '<div class="top-row" data-top="' + escape(e.name) + '">' +
+        '<div style="min-width:0;flex:1">' +
+          '<div class="top-name">' + escape(e.name) + ' ' + tags.join('') + '</div>' +
+          pathRow +
+        '</div>' +
+        '<div class="stat-value" title="deepest downward call chain (levels)">d:' + depthTxt + '</div>' +
+        '</div>';
+    }).join('');
+    for (const el of topDepthDiv.querySelectorAll('[data-top]')) {
+      el.addEventListener('click', () => {
+        q.value = el.getAttribute('data-top');
+        vscode.postMessage({ type: 'query', name: q.value });
+      });
+    }
+    wireCollapsibles(topDepthBlock);
   }
 
   // Highlight (case-insensitive) the matched substring inside an escaped path.
@@ -2077,7 +2179,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       const saved = (vscode.getState() || {}).collapsed;
       if (saved && Object.keys(saved).length) return saved;
     } catch (_) {}
-    return { top: true, rec: true, unbound: true };
+    return { top: true, "top-depth": true, rec: true, unbound: true };
   })();
   // Wire any .section-label.collapsible inside root. The body is the element
   // marked data-collapse-body / id="<key>-body", else the next sibling.
