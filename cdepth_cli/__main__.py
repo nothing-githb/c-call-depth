@@ -139,7 +139,10 @@ def run(args) -> dict:
         and (optional) file basename. Returns [{"callee", "cond"}]."""
         out_rm = []
         for r in cond_removals:
-            if str(r.get("caller", "")) != info["name"]:
+            caller = str(r.get("caller", ""))
+            # caller omitted or "*" = any caller (the edge to `callee` is dropped
+            # from EVERY function whenever the condition holds).
+            if caller and caller != "*" and caller != info["name"]:
                 continue
             rfb = os.path.basename(str(r.get("file", "")))
             if rfb and os.path.basename(info["file"]) != rfb:

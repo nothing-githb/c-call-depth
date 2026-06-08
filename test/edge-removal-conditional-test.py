@@ -74,6 +74,28 @@ res2 = compute_analysis(
 check("callerContains: hb dropped on the root_b path, kept on root_a",
       roots_of(res2, "hb") == {"root_a"})
 
+# --- "any caller": if a path comes through A, NOTHING can reach B. The edge
+#     into B is dropped for ANY caller (here `mid`, which is not A itself)
+#     whenever A is on the path. This is the caller-less + callerContains case. ---
+def build_anyB():
+    return {
+        "root_a": FunctionInfo("root_a", "a.c", 0, ["A"], stack_bytes=10),
+        "root_d": FunctionInfo("root_d", "d.c", 0, ["mid"], stack_bytes=10),
+        "A":      FunctionInfo("A", "x.c", 0, ["mid"], stack_bytes=10),
+        # mid is the actual caller of B (not A) — caller-less removal attaches the
+        # rule here (and to every function); it fires when A is on the path.
+        "mid":    FunctionInfo("mid", "x.c", 0, ["B"], stack_bytes=10,
+                               removed_callees=[{"callee": "B", "cond": {"callerContains": "A"}}]),
+        "B":      FunctionInfo("B", "x.c", 0, [], stack_bytes=1000),
+    }
+res3 = compute_analysis(build_anyB(), pinned_roots={"root_a", "root_d"}, max_depth=256)
+check("any-caller: B unreachable from root_a (the path passes through A)",
+      "root_a" not in roots_of(res3, "B"))
+check("any-caller: B still reachable from root_d (no A on the path)",
+      "root_d" in roots_of(res3, "B"))
+check("any-caller: intermediate mid is still reached from both roots",
+      roots_of(res3, "mid") == {"root_a", "root_d"})
+
 print("\nEDGE-REMOVAL-CONDITIONAL: PASS - per-root conditional removal works." if failed == 0
       else f"\nEDGE-REMOVAL-CONDITIONAL: FAIL - {failed} check(s) failed.")
 sys.exit(0 if failed == 0 else 1)

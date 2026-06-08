@@ -3,6 +3,14 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.42.0
+
+- Edge removals: **`caller` is now optional**. Omit it (or use `"*"`) to remove
+  the edge into `callee` from **any** caller. Combined with a `when`, this
+  expresses "from any function, if a path comes through A it can't reach B"
+  (`{ "callee": "B", "when": { "callerContains": "A" } }`). A caller-less
+  removal without `when` drops every edge into `callee` (makes it uncalled).
+
 ## 1.41.0
 
 - Edge removals can now be **conditional**: add a `when` to an entry

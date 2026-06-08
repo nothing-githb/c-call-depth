@@ -70,6 +70,18 @@ apply_edge_removals(g3, [{"caller": "A", "callee": "C", "file": "one.c"}])
 check("file-scoped removal hits one.c", g3["A#1"]["callees"] == [])
 check("file-scoped removal spares two.c", g3["A#2"]["callees"] == ["C"])
 
+# 4b) caller omitted = ANY caller: removes the callee from every record.
+g = mk()
+nb = apply_edge_removals(g, [{"callee": "C"}])
+check("caller-less removal drops C from every caller (A and B)",
+      "C" not in g["A"]["callees"] and "C" not in g["B"]["callees"])
+check("caller-less removal reports 2 changed records", nb == 2)
+# explicit "*" wildcard behaves the same
+g = mk()
+apply_edge_removals(g, [{"caller": "*", "callee": "C"}])
+check("caller '*' wildcard drops C from every caller",
+      "C" not in g["A"]["callees"] and "C" not in g["B"]["callees"])
+
 # 5) No-match and malformed entries are reported, not fatal.
 logs = []
 g = mk()

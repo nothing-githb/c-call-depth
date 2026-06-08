@@ -32,16 +32,17 @@ def apply_edge_removals(out: dict, edge_removals: list, log=None) -> int:
 
     removed = 0
     for j, rm in enumerate(edge_removals or []):
-        try:
-            rc = str(rm["caller"])
-            rcal = str(rm["callee"])
-        except (KeyError, TypeError):
-            emit(f"edge-removal #{j} ignored (needs caller and callee)")
+        rcal = str(rm.get("callee", "")) if isinstance(rm, dict) else ""
+        if not rcal:
+            emit(f"edge-removal #{j} ignored (needs a callee)")
             continue
+        # caller is OPTIONAL: omitted or "*" means "any caller of `callee`".
+        rc = str(rm.get("caller", ""))
+        wildcard = rc == "" or rc == "*"
         rfb = os.path.basename(str(rm.get("file", "")))
         matched = False
         for rec in out.values():
-            if rec.get("name") != rc:
+            if not wildcard and rec.get("name") != rc:
                 continue
             if rfb and os.path.basename(rec.get("file", "")) != rfb:
                 continue
@@ -61,7 +62,7 @@ def apply_edge_removals(out: dict, edge_removals: list, log=None) -> int:
                 removed += 1
                 matched = True
         if not matched:
-            emit(f"edge-removal #{j} ({rc} -> {rcal}) matched no edge")
+            emit(f"edge-removal #{j} ({rc or '*'} -> {rcal}) matched no edge")
     if edge_removals:
         emit(f"applied {removed} edge removal(s)")
     return removed

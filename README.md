@@ -198,12 +198,14 @@ or set `cCallDepth.edgeRemovalsPath`):
 Each entry removes that one edge **wherever it came from** — a direct call, an
 fp/indirect target, or a conditional target — so the pruned edge disappears from
 the call graph, peak, depth, and the Calls-into/Callers paths entirely. Matching
-is by function **name** (`caller` + `callee`); a same-named static is matched by
-its bare name, and the optional `file` (the caller's file basename) disambiguates
-two callers that share a name. Removal is scoped to that caller: other callers of
-the same callee keep their edge. Editing the file re-runs analysis (unchanged
-sources are not re-parsed). This is the complement of fp-overrides: overrides
-**narrow/verify** fp targets, removals **delete** an edge outright.
+is by function **name**; a same-named static is matched by its bare name, and the
+optional `file` (the caller's file basename) disambiguates two callers that share
+a name. Only `callee` is required — **`caller` is optional**: omit it (or use
+`"*"`) to remove the edge into `callee` from **any** caller. With a `caller`,
+removal is scoped to it (other callers of the same callee keep their edge).
+Editing the file re-runs analysis (unchanged sources are not re-parsed). This is
+the complement of fp-overrides: overrides **narrow/verify** fp targets, removals
+**delete** an edge outright.
 
 #### Conditional (per-root) removals
 
@@ -217,13 +219,17 @@ globally — the same condition grammar as conditional fp-overrides:
     { "caller": "dispatch", "callee": "handler_b", "when": { "fromRoot": "task_a" } },
     // drop the edge only on paths that pass through isr_ctx
     { "caller": "dispatch", "callee": "handler_c", "when": { "callerContains": "isr_ctx" } },
-    { "caller": "f", "callee": "g", "when": { "any": [ { "fromRoot": "a" }, { "fromRoot": "b" } ] } }
+    { "caller": "f", "callee": "g", "when": { "any": [ { "fromRoot": "a" }, { "fromRoot": "b" } ] } },
+    // caller omitted = ANY function: "if a path comes through A, nothing reaches B"
+    { "callee": "B", "when": { "callerContains": "A" } }
   ]
 }
 ```
 
 Conditions: `fromRoot` (analysis started at this root), `callerContains` (this
-function is on the current path), combined with `all` / `any` / `not`. **Scope:**
+function is on the current path), combined with `all` / `any` / `not`. Omit
+`caller` (or use `"*"`) to apply the rule to **every** caller of `callee` — e.g.
+"if a path comes through A, it can't reach B" is one caller-less entry. **Scope:**
 a conditional removal applies to the **per-root analysis only** — it lowers the
 per-root **Depth** and **Peak (from root)** for the matching root(s). The edge
 stays in the global call graph and the root-independent **own peak** keeps the
