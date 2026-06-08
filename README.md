@@ -205,6 +205,31 @@ the same callee keep their edge. Editing the file re-runs analysis (unchanged
 sources are not re-parsed). This is the complement of fp-overrides: overrides
 **narrow/verify** fp targets, removals **delete** an edge outright.
 
+#### Conditional (per-root) removals
+
+Add a `when` condition to remove the edge **only on matching paths** instead of
+globally — the same condition grammar as conditional fp-overrides:
+
+```jsonc
+{
+  "removals": [
+    // dispatch → handler_b never happens when the call originates at task_a
+    { "caller": "dispatch", "callee": "handler_b", "when": { "fromRoot": "task_a" } },
+    // drop the edge only on paths that pass through isr_ctx
+    { "caller": "dispatch", "callee": "handler_c", "when": { "callerContains": "isr_ctx" } },
+    { "caller": "f", "callee": "g", "when": { "any": [ { "fromRoot": "a" }, { "fromRoot": "b" } ] } }
+  ]
+}
+```
+
+Conditions: `fromRoot` (analysis started at this root), `callerContains` (this
+function is on the current path), combined with `all` / `any` / `not`. **Scope:**
+a conditional removal applies to the **per-root analysis only** — it lowers the
+per-root **Depth** and **Peak (from root)** for the matching root(s). The edge
+stays in the global call graph and the root-independent **own peak** keeps the
+worst case (exactly like a conditional fp *add*). A removal **without** `when` is
+unconditional and prunes the edge everywhere.
+
 ## Side panel
 
 The side panel is split into two tabs that separate the two ways you use it:

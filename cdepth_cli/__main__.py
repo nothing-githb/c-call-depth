@@ -102,9 +102,17 @@ def run(args) -> dict:
         except (json.JSONDecodeError, OSError) as e:
             log(f"could not read edge-removals: {e}")
 
+    # Split removals: unconditional ones are pruned globally from the graph;
+    # conditional ones (with a "when") are applied per-root during analysis, so
+    # the edge stays in the graph but is dropped only on matching paths.
+    uncond_removals = [r for r in edge_removals if isinstance(r, dict) and not r.get("when")]
+    cond_removals = [r for r in edge_removals if isinstance(r, dict) and r.get("when")]
+    if cond_removals:
+        log(f"{len(cond_removals)} conditional edge removal(s) (applied per-root)")
+
     gb = ClangGraphBuilder(log=log)
     graph = gb.build(files, extra_args, cache_dir=args.cache_dir,
-                     fp_overrides=fp_overrides, edge_removals=edge_removals)
+                     fp_overrides=fp_overrides, edge_removals=uncond_removals)
 
     # Merge stack usage.
     su = scan_su_directory(args.su_dir) if args.su_dir else {}
@@ -126,6 +134,21 @@ def run(args) -> dict:
             consumed_su.add(id(e))
         return e
 
+    def _removals_for(info):
+        """Conditional removals attached to this caller: matched by bare name
+        and (optional) file basename. Returns [{"callee", "cond"}]."""
+        out_rm = []
+        for r in cond_removals:
+            if str(r.get("caller", "")) != info["name"]:
+                continue
+            rfb = os.path.basename(str(r.get("file", "")))
+            if rfb and os.path.basename(info["file"]) != rfb:
+                continue
+            callee = str(r.get("callee", ""))
+            if callee:
+                out_rm.append({"callee": callee, "cond": r.get("when")})
+        return out_rm
+
     functions: dict[str, FunctionInfo] = {}
     for name, info in graph.items():
         e = _su_for(info)
@@ -140,6 +163,7 @@ def run(args) -> dict:
             decl_file=info.get("declFile", info["file"]),
             fp_verified=info.get("fpVerified", False),
             conditional_callees=info.get("conditional", []),
+            removed_callees=_removals_for(info),
         )
     # Ghost records: in .su but not parsed (e.g. assembly, or a TU not in
     # compile_commands). Include so their stack still contributes — but skip

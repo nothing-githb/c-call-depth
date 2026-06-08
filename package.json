@@ -2,7 +2,7 @@
   "name": "c-call-depth",
   "displayName": "C Stack Analysis & Call Graph",
   "description": "Visualize C call depth, worst-case stack usage (-fstack-usage), and the call graph inline — built for embedded/firmware and DO-178C / ISO 26262 stack-usage review.",
-  "version": "1.40.1",
+  "version": "1.41.0",
   "publisher": "halistahasahin",
   "license": "MIT",
   "pricing": "Free",
@@ -111,7 +111,7 @@
         "cCallDepth.edgeRemovalsPath": {
           "type": "string",
           "default": "",
-          "description": "Path to a JSON file of impossible call edges to prune from the graph. Format: {\"removals\":[{\"caller\":\"dispatch\",\"callee\":\"handler_x\",\"file\":\"drivers.c\"}]} — removes that caller→callee edge (direct or function-pointer) so it no longer appears in the graph, peak, depth, or paths. file is an optional caller-file basename. Empty = use <workspace>/edge-removals.json if present."
+          "description": "Path to a JSON file of impossible call edges to prune. Format: {\"removals\":[{\"caller\":\"dispatch\",\"callee\":\"handler_x\",\"file\":\"drivers.c\"}]} — removes that caller→callee edge (direct or function-pointer). Without a condition it is pruned everywhere (graph, peak, depth, paths). Add a \"when\" (e.g. {\"fromRoot\":\"task_a\"} or {\"callerContains\":\"isr_ctx\"}, combinable with all/any/not) to drop it only on matching paths in the per-root Depth/Peak. file is an optional caller-file basename. Empty = use <workspace>/edge-removals.json if present."
         },
         "cCallDepth.logLevel": {
           "type": "string",

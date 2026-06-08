@@ -3,6 +3,16 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.41.0
+
+- Edge removals can now be **conditional**: add a `when` to an entry
+  (`{caller, callee, when}`) to drop the edge only on matching paths instead of
+  globally. Conditions are `fromRoot` / `callerContains`, combinable with
+  `all` / `any` / `not` — the same grammar as conditional fp-overrides. A
+  conditional removal applies to the **per-root Depth / Peak** only; the global
+  graph and root-independent own-peak keep the worst case. Removals without
+  `when` stay unconditional (pruned everywhere).
+
 ## 1.40.1
 
 - Per-root **Depth** is no longer silently capped near 65: the
