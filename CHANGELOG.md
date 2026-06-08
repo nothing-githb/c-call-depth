@@ -3,6 +3,20 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.40.0
+
+- Auto-refresh is now scoped to the build: a source-file save/change only
+  re-runs the analysis when that file is a **translation unit listed in
+  `compile_commands.json`**. Editing any other file (headers, sources not in
+  the build, docs) no longer triggers a re-analysis — use the manual
+  **Refresh analysis** command for those. (`.su`, `compile_commands.json`, and
+  `fp-overrides.json` still auto-refresh as before.)
+- Fix: the side panel no longer jumps from the **Overview** tab to the
+  **Function** tab on its own. A background re-query (triggered when the
+  analysis refreshes and a function detail was open) updated the detail and
+  forced the Function tab; it now keeps you on Overview and only switches tabs
+  for an explicit lookup.
+
 ## 1.39.2
 
 - Report: the exported HTML report title is now **"C Stack Analysis & Call

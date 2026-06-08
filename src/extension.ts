@@ -201,6 +201,9 @@ export async function activate(context: vscode.ExtensionContext) {
           if (e.affectsConfiguration("cCallDepth.fpOverridesPath")) {
             rewatchCustomFpOverrides?.();
           }
+          if (e.affectsConfiguration("cCallDepth.compileCommandsDir")) {
+            loadCompileCommandsSet?.();
+          }
           scheduleAnalysis();
           return;
         }
@@ -208,9 +211,55 @@ export async function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // ── Auto-refresh scope ──────────────────────────────────────────────────
+  // Only files that are translation units listed in compile_commands.json may
+  // trigger an automatic re-analysis. Editing any other file in the workspace
+  // (headers, sources not in the build, docs, …) is ignored — use the manual
+  // "Refresh analysis" command for those.
+  let tuPaths = new Set<string>();
+  const normPath = (p: string) => path.resolve(p).replace(/\\/g, "/").toLowerCase();
+  const resolveCompileCommandsPath = (): string | undefined => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!root) { return undefined; }
+    const setting = vscode.workspace.getConfiguration("cCallDepth").get<string>("compileCommandsDir", "");
+    const cands: string[] = [];
+    if (setting) {
+      const abs = path.isAbsolute(setting) ? setting : path.join(root, setting);
+      cands.push(/compile_commands\.json$/i.test(abs) ? abs : path.join(abs, "compile_commands.json"));
+    }
+    cands.push(path.join(root, "compile_commands.json"));
+    cands.push(path.join(root, "build", "compile_commands.json"));
+    for (const c of cands) { try { if (fs.existsSync(c)) { return c; } } catch { /* ignore */ } }
+    return undefined;
+  };
+  const loadCompileCommandsSet = () => {
+    const next = new Set<string>();
+    try {
+      const ccPath = resolveCompileCommandsPath();
+      if (ccPath) {
+        const txt = fs.readFileSync(ccPath, "utf8").replace(/^\uFEFF/, "");
+        const entries = JSON.parse(txt);
+        if (Array.isArray(entries)) {
+          for (const e of entries) {
+            if (e && typeof e.file === "string") {
+              const dir = typeof e.directory === "string" ? e.directory : path.dirname(ccPath);
+              const abs = path.isAbsolute(e.file) ? e.file : path.resolve(dir, e.file);
+              next.add(normPath(abs));
+            }
+          }
+        }
+      }
+    } catch { /* leave empty on parse error — nothing auto-refreshes from sources */ }
+    tuPaths = next;
+    log.info("watch", `auto-refresh scope: ${tuPaths.size} translation unit(s) from compile_commands.json`);
+  };
+  const isTrackedTU = (fsPath: string) => tuPaths.has(normPath(fsPath));
+  loadCompileCommandsSet();
+
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(doc => {
-      if (doc.languageId !== "c" && !doc.fileName.endsWith(".h")) return;
+      // Re-analyze only when a compile_commands.json translation unit is saved.
+      if (!isTrackedTU(doc.fileName)) { return; }
       scheduleAnalysisDebounced();
     })
   );
@@ -219,11 +268,11 @@ export async function activate(context: vscode.ExtensionContext) {
   // .su files (stack frames) and compile_commands.json (the file set).
   const suWatcher = vscode.workspace.createFileSystemWatcher("**/*.su");
   const ccWatcher = vscode.workspace.createFileSystemWatcher("**/compile_commands.json");
-  // Also watch C sources and headers on disk, so changes made OUTSIDE the
-  // editor (git checkout, external build, generated headers) still invalidate
-  // the per-TU cache. When a header changes, the analyzer re-parses exactly
-  // the translation units that include it (tracked via each TU's _includes);
-  // unaffected .c files stay cached.
+  // Watch C sources on disk so external changes (git checkout, build) to a
+  // translation unit re-analyze too. The glob is broad, but the handlers below
+  // only act when the changed file is actually a compile_commands.json TU
+  // (isTrackedTU) — edits to any other file (headers, non-build sources) are
+  // ignored; use the manual "Refresh analysis" command for those.
   const srcWatcher = vscode.workspace.createFileSystemWatcher("**/*.{c,h,cc,cpp,cxx,hpp,hh}");
   // The fp-overrides JSON (manual function-pointer verification) affects the
   // analysis, so re-analyze when it changes. We watch the conventional name
@@ -252,13 +301,13 @@ export async function activate(context: vscode.ExtensionContext) {
     suWatcher.onDidCreate(() => scheduleAnalysisDebounced()),
     suWatcher.onDidDelete(() => scheduleAnalysisDebounced()),
     ccWatcher,
-    ccWatcher.onDidChange(() => scheduleAnalysisDebounced()),
-    ccWatcher.onDidCreate(() => scheduleAnalysisDebounced()),
-    ccWatcher.onDidDelete(() => scheduleAnalysisDebounced()),
+    ccWatcher.onDidChange(() => { loadCompileCommandsSet(); scheduleAnalysisDebounced(); }),
+    ccWatcher.onDidCreate(() => { loadCompileCommandsSet(); scheduleAnalysisDebounced(); }),
+    ccWatcher.onDidDelete(() => { loadCompileCommandsSet(); scheduleAnalysisDebounced(); }),
     srcWatcher,
-    srcWatcher.onDidChange(() => scheduleAnalysisDebounced()),
-    srcWatcher.onDidCreate(() => scheduleAnalysisDebounced()),
-    srcWatcher.onDidDelete(() => scheduleAnalysisDebounced()),
+    srcWatcher.onDidChange(u => { if (isTrackedTU(u.fsPath)) { scheduleAnalysisDebounced(); } }),
+    srcWatcher.onDidCreate(u => { if (isTrackedTU(u.fsPath)) { scheduleAnalysisDebounced(); } }),
+    srcWatcher.onDidDelete(u => { if (isTrackedTU(u.fsPath)) { scheduleAnalysisDebounced(); } }),
     fpOvWatcher,
     fpOvWatcher.onDidChange(() => scheduleAnalysisDebounced()),
     fpOvWatcher.onDidCreate(() => scheduleAnalysisDebounced()),

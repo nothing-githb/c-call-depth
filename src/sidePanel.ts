@@ -1158,6 +1158,10 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   // Name of the function currently shown in the detail view, so a re-analysis
   // can refresh it automatically (its stack/peak/paths may have changed).
   let currentOpenFn = '';
+  // True while the next 'result' is from an automatic re-query (analysis
+  // refresh / restore), not a user lookup — so render() won't yank the user off
+  // the Overview tab.
+  let pendingAutoRequery = false;
   // Per-root table sort state. key: 'root' | 'depth' | 'peak'; dir: 1 asc / -1 desc.
   let currentPerRoot = null;
   let lastDetail = null;        // last rendered function payload (for re-sort)
@@ -1245,16 +1249,19 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       // If nothing is open but a function was open before the webview was torn
       // down (view switch), restore it from persisted state.
       if (currentOpenFn) {
+        pendingAutoRequery = true;
         vscode.postMessage({ type: 'query', name: currentOpenFn });
       } else {
         const saved = persistedOpenFn();
         if (saved) {
           currentOpenFn = saved;
+          pendingAutoRequery = true;
           vscode.postMessage({ type: 'query', name: saved });
         }
       }
     } else if (m.type === 'result') {
-      render(m.payload);
+      const auto = pendingAutoRequery; pendingAutoRequery = false;
+      render(m.payload, auto);
     } else if (m.type === 'externalQuery') {
       // Triggered by the hover's "open in side panel" link. Fill the search
       // box and run the query, just as if the user had typed it.
@@ -1757,7 +1764,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
            '</b>' + escape(text.slice(i + needle.length));
   }
 
-  function render(r) {
+  function render(r, fromAutoRefresh) {
     if (!r) {
       result.innerHTML = '<div class="empty">No function found by that name. Tip: libclang must have parsed it (and it must not be a ghost-only entry).</div>';
       currentOpenFn = '';
@@ -1767,7 +1774,11 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     currentOpenFn = r.name;
     lastDetail = r;
     saveOpenFn(r.name);
-    switchTab('function');
+    // Only switch to the Function tab for an explicit lookup. On a background
+    // re-query (analysis refresh / restore) while the user is on Overview, keep
+    // them on Overview — just update the detail underneath.
+    const onOverview = overviewTab && overviewTab.style.display !== 'none';
+    if (!(fromAutoRefresh && onOverview)) switchTab('function');
     // A result is now showing, so close the autocomplete dropdown and clear its
     // match state — otherwise it can stay open over the detail view (e.g. after
     // clicking a function in an Overview list, which sets q.value).

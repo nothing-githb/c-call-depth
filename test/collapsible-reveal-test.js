@@ -185,6 +185,78 @@ if (calleeHead) {
   check("the hops sort button becomes active", !!res.querySelector('[data-sortsec="callers"][data-sortby="hops"].active'));
 }
 
+// A background re-query (analysis refresh) must NOT yank the user off Overview.
+{
+  const tFn = doc.getElementById("tab-function");
+  const tOv = doc.getElementById("tab-overview");
+  const payload = { name: "stayfn", file: "a.c", nameLine: 1, recursive: false, recursiveViaFp: false,
+    fpVerified: false, pinnedRoot: false, autoRoot: false, depth: 1, stackBytes: 64,
+    cumulativeStack: 100, cumulativeBounded: false, perRoot: [], outgoing: [], incoming: [],
+    cycles: [], outgoingTotal: 0, incomingTotal: 0, pathCap: 500, thresholdWarn: 1024, thresholdCritical: 4096 };
+  // 1) user opens a function -> Function tab becomes active
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "result", payload } }));
+  check("opening a function activates the Function tab", tFn.classList.contains("active"));
+  // 2) user switches to Overview
+  tOv.dispatchEvent(new w.Event("click"));
+  check("user can switch to Overview", tOv.classList.contains("active"));
+  // 3) analysis update arrives (recursion = last step) -> fires an auto re-query
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "recursion", entries: [] } }));
+  // 4) the auto re-query result returns -> must NOT steal the tab
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "result", payload } }));
+  check("background re-query keeps the user on Overview",
+        tOv.classList.contains("active") && !tFn.classList.contains("active"));
+  // 5) an explicit lookup (externalQuery) still switches to the Function tab
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "externalQuery", name: "stayfn" } }));
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "result", payload } }));
+  check("an explicit lookup still switches to the Function tab", tFn.classList.contains("active"));
+}
+
+// Dynamic refresh: EVERY Overview list re-renders when a new analysis update
+// arrives (the host re-posts top / topDepth / recursion / unboundFp each time).
+{
+  const send = (m) => w.dispatchEvent(new w.MessageEvent("message", { data: m }));
+  const topDiv2 = doc.getElementById("top");
+  const tdDiv2 = doc.getElementById("top-depth");
+  const recDiv2 = doc.getElementById("rec");
+  const ubDiv2 = doc.getElementById("unbound");
+  const recBlk2 = doc.getElementById("rec-block");
+  const ubBlk2 = doc.getElementById("unbound-block");
+  const mkTop = (name, peak) => ({ name, file: "/" + name + ".c", peak, bounded: false, recursive: false, recursiveViaFp: false, pinnedRoot: false, autoRoot: false });
+
+  // ── round 1 ──
+  send({ type: "top", entries: [mkTop("r1_top_a", 5000), mkTop("r1_top_b", 1000)] });
+  send({ type: "topDepth", entries: [{ name: "r1_depth_a", file: "/a.c", depth: 50, bounded: false }] });
+  send({ type: "recursion", entries: [{ name: "r1_rec_a", file: "/a.c", viaFp: false, peak: 200, hops: 1 }] });
+  send({ type: "unboundFp", entries: [{ name: "r1_ub_a", file: "/a.c", sites: 1, peak: 300 }] });
+  check("round1: Top by peak shows initial entry", topDiv2.textContent.includes("r1_top_a"));
+  check("round1: Top by depth shows initial entry", tdDiv2.textContent.includes("r1_depth_a"));
+  check("round1: Recursive shows initial entry", recDiv2.textContent.includes("r1_rec_a"));
+  check("round1: Unbound fp shows initial entry", ubDiv2.textContent.includes("r1_ub_a"));
+
+  // ── round 2: new analysis — different content; recursion goes empty ──
+  send({ type: "top", entries: [mkTop("r2_top_x", 8000), mkTop("r2_top_y", 9000), mkTop("r2_top_z", 100)] });
+  send({ type: "topDepth", entries: [{ name: "r2_depth_x", file: "/x.c", depth: 99, bounded: false }, { name: "r2_depth_y", file: "/y.c", depth: 12, bounded: false }] });
+  send({ type: "unboundFp", entries: [{ name: "r2_ub_x", file: "/x.c", sites: 2, peak: 600 }] });
+  send({ type: "recursion", entries: [] });
+
+  check("refresh: Top by peak swaps in new entries, drops old",
+        topDiv2.textContent.includes("r2_top_x") && !topDiv2.textContent.includes("r1_top_a"));
+  check("refresh: Top by peak count badge updates to 3",
+        doc.getElementById("top-count").textContent === "3");
+  check("refresh: Overview tab badge updates to 3",
+        (doc.querySelector("#tab-overview .tab-badge") || {}).textContent === "3");
+  check("refresh: Top by depth swaps in new entries, drops old",
+        tdDiv2.textContent.includes("r2_depth_x") && !tdDiv2.textContent.includes("r1_depth_a"));
+  check("refresh: Top by depth count badge updates to 2",
+        doc.getElementById("top-depth-count").textContent === "2");
+  check("refresh: Top by depth re-sorts (deepest first)",
+        /r2_depth_x[\s\S]*r2_depth_y/.test(tdDiv2.textContent));
+  check("refresh: Unbound fp swaps in new entries, drops old",
+        ubDiv2.textContent.includes("r2_ub_x") && !ubDiv2.textContent.includes("r1_ub_a") && ubBlk2.style.display !== "none");
+  check("refresh: Recursive list clears + hides when the new analysis has none",
+        recBlk2.style.display === "none");
+}
+
 console.log(failed === 0
   ? "\nCOLLAPSIBLE-REVEAL: PASS — accordion + incremental reveal work for rec/unbound."
   : `\nCOLLAPSIBLE-REVEAL: FAIL — ${failed} check(s) failed.`);
