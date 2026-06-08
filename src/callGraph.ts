@@ -389,6 +389,49 @@ export function pathsFrom(
   return unique;
 }
 
+/** The single longest downward call chain from `name`, by node count — the
+ *  path form of the "downDepth" metric (self = 1, each deeper level +1). It uses
+ *  a memoized DFS over `callees` (fp targets are included, since they are a
+ *  subset of `callees`), so it is O(V+E) and — unlike `pathsFrom` — is NOT
+ *  bounded by a depth/stack limit. Its hop count therefore equals the analyzer's
+ *  downDepth. Cycles are cut on first revisit (chain marked truncated, matching
+ *  downDepthBounded). The side panel injects this into the "Calls into" list so
+ *  that sorting by hops surfaces the same number shown in the Overview
+ *  "Top by depth" list. */
+export function longestPathFrom(
+  functions: Map<string, FunctionRecord>,
+  name: string
+): CallPath {
+  const bestMemo = new Map<string, string[]>();
+  const boundedMemo = new Map<string, boolean>();
+  const visiting = new Set<string>();
+
+  function dfs(n: string): { nodes: string[]; bounded: boolean } {
+    const cached = bestMemo.get(n);
+    if (cached) { return { nodes: cached, bounded: boundedMemo.get(n) === true }; }
+    if (visiting.has(n)) { return { nodes: [n], bounded: true }; }  // cycle: count once
+    const fn = functions.get(n);
+    if (!fn) { return { nodes: [n], bounded: false }; }
+    visiting.add(n);
+    let bestChild: string[] = [];
+    let bounded = false;
+    for (const c of fn.callees) {
+      if (!functions.has(c)) { continue; }
+      const sub = dfs(c);
+      bounded = bounded || sub.bounded;
+      if (sub.nodes.length > bestChild.length) { bestChild = sub.nodes; }
+    }
+    visiting.delete(n);
+    const nodes = [n, ...bestChild];
+    bestMemo.set(n, nodes);
+    boundedMemo.set(n, bounded);
+    return { nodes, bounded };
+  }
+
+  const r = dfs(name);
+  return { nodes: r.nodes, totalStack: sumStack(functions, r.nodes), truncatedByCycle: r.bounded };
+}
+
 /** Enumerate up to `limit` distinct caller chains ending at `name`,
  *  sorted by totalStack descending. Cycles → truncated.
  *  Used for hover popups: "who reaches this function".

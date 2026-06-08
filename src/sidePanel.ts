@@ -14,7 +14,7 @@
 //     { type: "open",  file: string, line: number, col: number }
 
 import * as vscode from "vscode";
-import { FunctionRecord, DepthInfo, pathsFrom, pathsTo, CallPath } from "./callGraph";
+import { FunctionRecord, DepthInfo, pathsFrom, pathsTo, longestPathFrom, CallPath } from "./callGraph";
 
 export interface SidePanelState {
   byName: Map<string, FunctionRecord>;
@@ -326,10 +326,21 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
         // displays pathsLimit initially and lets the user expand to all of
         // these on demand. We add +1 over the expanded cap purely to detect
         // "there are even more than this" for the badge.
-        const EXPANDED_PATHS_CAP = 500;
+        const EXPANDED_PATHS_CAP = 50;
         const pathDepth = state.pathsMaxDepth;
         const out = pathsFrom(state.byName, name, EXPANDED_PATHS_CAP + 1, pathDepth)
             .filter(p => p.nodes.length > 1);
+        // pathsFrom is depth-capped and ranked by stack, so it can omit the
+        // single deepest chain. Inject that chain (the path form of downDepth)
+        // at the front so it survives the cap and "Calls into" sorted by hops
+        // shows the same number as the Overview "Top by depth" list.
+        const deepest = longestPathFrom(state.byName, name);
+        if (deepest.nodes.length > 1) {
+            const key = deepest.nodes.join(" ");
+            const idx = out.findIndex(p => p.nodes.join(" ") === key);
+            if (idx > 0) { out.splice(idx, 1); }
+            if (idx !== 0) { out.unshift(deepest); }
+        }
         const inn = pathsTo(state.byName, name, EXPANDED_PATHS_CAP + 1, pathDepth, state.pinnedRoots)
             .filter(p => p.nodes.length > 1);
         const isPinned = info.isPinnedRoot === true;
@@ -1961,7 +1972,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       }
       return renderRevealSection(label, rows, total, {
         sortControls: sortControls,
-        capAt: 500
+        capAt: 50
       });
     }
 

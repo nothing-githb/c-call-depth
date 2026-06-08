@@ -5,6 +5,14 @@ documented here. This project adheres to [Semantic Versioning](https://semver.or
 
 ## 1.40.0
 
+- Fix: the function detail's **Calls into** list, sorted by **hops**, now
+  surfaces the function's deepest downward chain — so its top hop count matches
+  the **Top by depth** (`d:N`) value in the Overview. The deepest chain is
+  injected explicitly, so it is no longer dropped by the path list's depth cap
+  (`pathsMaxDepth`) or its stack-based ranking.
+- The function detail's **Callers** and **Calls into** lists now cap at 50
+  paths (was 500), keeping the panel lighter; the deepest chain is still always
+  shown (see above) and the call graph shows the full picture.
 - Auto-refresh is now scoped to the build: a source-file save/change only
   re-runs the analysis when that file is a **translation unit listed in
   `compile_commands.json`**. Editing any other file (headers, sources not in
