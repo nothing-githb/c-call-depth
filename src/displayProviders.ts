@@ -475,7 +475,9 @@ function appendPathTable(md: vscode.MarkdownString, paths: CallPath[], _kind: "f
     const p = paths[i];
     const arrow = " → ";
     const chain = p.nodes.map(n => fnLink(n, state)).join(arrow);
-    const suffix = p.truncatedByCycle ? " _(↻ truncated)_" : "";
+    // ↻ only for a real cycle; a depth-limit cut is "…" (chain continues), not ↻.
+    const suffix = p.truncatedByCycle ? " _(↻ cycle)_"
+                 : p.truncatedByDepth ? " _(… depth limit)_" : "";
     md.appendMarkdown(`- ${chain} &nbsp; — \`${formatBytes(p.totalStack)}\`${suffix}\n`);
   }
 }

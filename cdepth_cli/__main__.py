@@ -203,7 +203,7 @@ def main(argv=None):
                     help="extra argument passed to libclang when parsing "
                          "(repeatable), e.g. --clang-arg=-DMACRO=1. compile_commands.json "
                          "flags are used automatically; these are added on top.")
-    ap.add_argument("--max-depth", type=int, default=64)
+    ap.add_argument("--max-depth", type=int, default=256)
     ap.add_argument("--out", default="", help="write full result JSON to this path")
     ap.add_argument("--cache-dir", default="",
                     help="directory for per-TU parse cache (incremental "

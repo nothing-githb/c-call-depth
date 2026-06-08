@@ -2,7 +2,7 @@
   "name": "c-call-depth",
   "displayName": "C Stack Analysis & Call Graph",
   "description": "Visualize C call depth, worst-case stack usage (-fstack-usage), and the call graph inline — built for embedded/firmware and DO-178C / ISO 26262 stack-usage review.",
-  "version": "1.40.0",
+  "version": "1.40.1",
   "publisher": "halistahasahin",
   "license": "MIT",
   "pricing": "Free",
@@ -90,8 +90,8 @@
         },
         "cCallDepth.maxDepthForCumulative": {
           "type": "number",
-          "default": 64,
-          "description": "Safety limit for cumulative stack traversal in case of unbroken recursion."
+          "default": 256,
+          "description": "Safety limit for cumulative-stack and per-root depth traversal in case of unbroken recursion. Per-root Depth is capped at this; raise it if your call chains are deeper."
         },
         "cCallDepth.pathsLimit": {
           "type": "number",

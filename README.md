@@ -430,7 +430,7 @@ flag.
 | `cCallDepth.displayMode` | `decoration` | `decoration` (pills) or `hover`. |
 | `cCallDepth.stackThresholds.warn` | `1024` | Peak ≤ this renders green; above renders orange (warn). |
 | `cCallDepth.stackThresholds.critical` | `4096` | Peak above this renders red (critical). |
-| `cCallDepth.maxDepthForCumulative` | `64` | Safety cap for cumulative-stack traversal under unbroken recursion. |
+| `cCallDepth.maxDepthForCumulative` | `256` | Safety cap for cumulative-stack and per-root **Depth** traversal under unbroken recursion. Raise if your chains are deeper. |
 | `cCallDepth.pathsLimit` | `5` | Paths shown per direction in hover/panel. |
 | `cCallDepth.pathsMaxDepth` | `32` | Max path length explored. Raise for very deep chains. |
 | `cCallDepth.fpOverridesPath` | `""` | JSON of call-site fp overrides (manual verification/narrowing). Empty = `<workspace>/fp-overrides.json` if present. |

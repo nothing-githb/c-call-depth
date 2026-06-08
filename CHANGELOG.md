@@ -3,6 +3,17 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.40.1
+
+- Per-root **Depth** is no longer silently capped near 65: the
+  `cCallDepth.maxDepthForCumulative` default is raised from 64 to **256**, so
+  deeper chains report their real depth (e.g. the 150-level sample now shows 151).
+- Fix: a path cut by the depth limit is no longer mislabeled as a recursion
+  cycle. Depth-limited chains are flagged separately (`truncatedByDepth`) and
+  shown with **…** ("continues past the depth limit"); the **↻** marker is now
+  reserved for chains that actually hit a recursion cycle, in both the side
+  panel and hover.
+
 ## 1.40.0
 
 - New: **edge removals** — prune impossible `caller → callee` calls via a JSON

@@ -86,6 +86,18 @@ const lc = longestPathFrom(cyc, "X");
 check("longestPathFrom terminates on a cycle and marks it bounded",
   lc.truncatedByCycle === true && lc.nodes.length >= 2);
 
+// Depth-cap vs cycle labeling: a chain cut by the depth limit must be flagged
+// truncatedByDepth (UI shows "…"), NEVER truncatedByCycle (which would show ↻).
+const depthCut = pathsFrom(fns, "F", 50, 2).filter(p => p.nodes.length > 1);
+check("depth-limited chain is flagged truncatedByDepth (not a cycle)",
+  depthCut.some(p => p.truncatedByDepth === true && !p.truncatedByCycle));
+check("no depth-cut chain is mislabeled as a cycle",
+  depthCut.every(p => !(p.truncatedByDepth && p.truncatedByCycle)));
+// A genuine cycle is flagged truncatedByCycle, and NOT truncatedByDepth.
+const cycPaths = pathsFrom(cyc, "X", 10, 20);
+check("a real cycle is flagged truncatedByCycle, not depth",
+  cycPaths.some(p => p.truncatedByCycle === true && !p.truncatedByDepth));
+
 console.log(failed === 0
   ? "\nDEPTH-CONSISTENCY: PASS — Calls-into hops-max matches Overview depth."
   : `\nDEPTH-CONSISTENCY: FAIL — ${failed} check(s) failed.`);

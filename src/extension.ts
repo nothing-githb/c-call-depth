@@ -433,7 +433,7 @@ async function runAnalysis(token: vscode.CancellationToken) {
   const cfg = vscode.workspace.getConfiguration("cCallDepth");
   const logLevel = (cfg.get<string>("logLevel", "info") as any) || "info";
   log.setLevel(logLevel);
-  const maxDepth = cfg.get<number>("maxDepthForCumulative", 64);
+  const maxDepth = cfg.get<number>("maxDepthForCumulative", 256);
   const suDirSetting = cfg.get<string>("suDirectory", "");
   const rootPatterns = cfg.get<string[]>("rootPatterns", []);
   await runPythonAnalysis(cfg, suDirSetting, rootPatterns, maxDepth, token);

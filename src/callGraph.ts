@@ -101,8 +101,12 @@ export interface CallPath {
   nodes: string[];
   /** sum of stackBytes along the path; missing frames contribute 0 */
   totalStack: number;
-  /** true if traversal was cut off by a cycle (path may be incomplete) */
+  /** true if traversal looped back into a cycle (the chain hits recursion) */
   truncatedByCycle: boolean;
+  /** true if traversal was cut at the depth limit (NOT a cycle) — the real
+   *  chain continues past what is shown. Kept distinct from truncatedByCycle so
+   *  the UI doesn't mislabel a depth-capped chain as recursion. */
+  truncatedByDepth?: boolean;
 }
 
 // ── Graph neighborhood extraction (for the interactive graph view) ─────
@@ -358,11 +362,12 @@ export function pathsFrom(
     stack.push(curr);
     const validCallees = fn.callees.filter(c => functions.has(c));
     if (validCallees.length === 0 || depth >= maxDepth) {
-      // leaf or depth cap reached
+      // leaf, or the depth limit was reached (NOT a cycle — flag it separately).
       out.push({
         nodes: [...stack],
         totalStack: sumStack(functions, stack),
-        truncatedByCycle: depth >= maxDepth
+        truncatedByCycle: false,
+        truncatedByDepth: depth >= maxDepth
       });
     } else {
       for (const c of validCallees) dfs(c, depth + 1);
@@ -482,7 +487,8 @@ export function pathsTo(
       out.push({
         nodes: [...stack].reverse(),
         totalStack: sumStack(functions, stack),
-        truncatedByCycle: depth >= maxDepth
+        truncatedByCycle: false,
+        truncatedByDepth: depth >= maxDepth
       });
     } else {
       for (const c of cs) dfs(c, depth + 1);

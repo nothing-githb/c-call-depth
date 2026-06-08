@@ -36,6 +36,7 @@ interface PathDto {
   rootIsPinned: boolean;
   totalStack: number;
   truncatedByCycle: boolean;
+  truncatedByDepth?: boolean;
 }
 
 interface PerRootDto {
@@ -538,7 +539,8 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
             nodes: p.nodes,
             rootIsPinned: pinned?.has(p.nodes[0]) === true,
             totalStack: p.totalStack,
-            truncatedByCycle: p.truncatedByCycle
+            truncatedByCycle: p.truncatedByCycle,
+            truncatedByDepth: p.truncatedByDepth === true
         };
     }
     getHtml(webview) {
@@ -1499,7 +1501,12 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       if (recursive) {
         html += '<span>' + (p.nodes.length - 1) + ' hops · <span class="cycle">↻ loop</span></span>';
       } else {
-        html += '<span>' + p.nodes.length + ' hops' + (p.truncatedByCycle ? ' · <span class="cycle">↻</span>' : '') + '</span>';
+        // ↻ ONLY when the chain hit a real recursion cycle; a depth-limit cut is
+        // shown as "…" (the chain continues past what is listed), never as ↻.
+        const mark = p.truncatedByCycle ? ' · <span class="cycle">↻</span>'
+                   : p.truncatedByDepth ? ' · <span class="hint" title="chain continues past the depth limit (cCallDepth.maxDepthForCumulative)">…</span>'
+                   : '';
+        html += '<span>' + p.nodes.length + ' hops' + mark + '</span>';
       }
       html += '</div></div>';
     }

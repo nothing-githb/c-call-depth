@@ -114,7 +114,7 @@ def _tarjan_scc(names: list[str], callees: dict[str, list[str]]) -> dict[str, in
 
 def compute_analysis(functions: dict[str, FunctionInfo],
                      pinned_roots: Optional[set[str]] = None,
-                     max_depth: int = 64) -> dict:
+                     max_depth: int = 256) -> dict:
     """Return a result dict ready to serialize:
        { "byName": { name: {...} }, "roots": [...] }"""
     pinned_roots = pinned_roots or set()
