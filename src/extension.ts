@@ -260,9 +260,34 @@ export async function activate(context: vscode.ExtensionContext) {
   const isTrackedTU = (fsPath: string) => tuPaths.has(normPath(fsPath));
   loadCompileCommandsSet();
 
+  // Config files whose content feeds the analysis. Saving any of them must
+  // re-run analysis even though they are not translation units. We match on
+  // basename here (in addition to the file-system watchers) so an in-editor save
+  // refreshes reliably regardless of watcher quirks (files.watcherExclude, etc.).
+  const isAnalysisConfigSave = (fsPath: string): boolean => {
+    const base = path.basename(fsPath).toLowerCase();
+    if (base === "edge-removals.json" || base === "fp-overrides.json"
+        || base === "compile_commands.json") { return true; }
+    const cfg = vscode.workspace.getConfiguration("cCallDepth");
+    for (const key of ["edgeRemovalsPath", "fpOverridesPath"]) {
+      const v = cfg.get<string>(key, "");
+      if (v && path.basename(v).toLowerCase() === base) { return true; }
+    }
+    return false;
+  };
+
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument(doc => {
-      // Re-analyze only when a compile_commands.json translation unit is saved.
+      // Re-analyze when a compile_commands.json translation unit OR an analysis
+      // config file (edge-removals.json / fp-overrides.json / compile_commands)
+      // is saved. Other saves are ignored.
+      if (isAnalysisConfigSave(doc.fileName)) {
+        if (path.basename(doc.fileName).toLowerCase() === "compile_commands.json") {
+          loadCompileCommandsSet();
+        }
+        scheduleAnalysisDebounced();
+        return;
+      }
       if (!isTrackedTU(doc.fileName)) { return; }
       scheduleAnalysisDebounced();
     })

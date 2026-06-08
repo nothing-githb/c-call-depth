@@ -3,6 +3,14 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.42.1
+
+- Fix: saving **edge-removals.json** (or fp-overrides.json / compile_commands.json,
+  including a custom `edgeRemovalsPath` / `fpOverridesPath`) now reliably re-runs
+  the analysis. The in-editor save handler recognises these config files directly
+  instead of relying only on the file-system watcher, which some setups debounce
+  or exclude.
+
 ## 1.42.0
 
 - Edge removals: **`caller` is now optional**. Omit it (or use `"*"`) to remove
