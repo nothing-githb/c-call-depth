@@ -115,6 +115,7 @@ const SUITES = [
   { file: "fp-struct-runtime-test.js",  kind: "js-analysis", arg: ALLF },
   { file: "generate-template-test.js",  kind: "js-analysis", arg: ALLF },
   { file: "cross-view-consistency-test.js", kind: "js-analysis", arg: ALLF },
+  { file: "big-workspace-test.js",      kind: "js" },
   { file: "peak-verify-test.py",        kind: "py-analysis", arg: ALLF },
   { file: "examples-count-test.py",     kind: "py-analysis", arg: ALLF },
   { file: "pinned-root-test.py",        kind: "py-analysis", arg: ALLFP },
