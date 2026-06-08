@@ -87,9 +87,24 @@ def run(args) -> dict:
         except (json.JSONDecodeError, OSError) as e:
             log(f"could not read fp-overrides: {e}")
 
+    # Load optional edge removals (impossible caller→callee calls to prune).
+    edge_removals = []
+    if args.edge_removals:
+        try:
+            with open(args.edge_removals, "r", encoding="utf-8") as f:
+                doc = json.load(f)
+            edge_removals = doc.get("removals", []) if isinstance(doc, dict) else doc
+            if not isinstance(edge_removals, list):
+                edge_removals = []
+            log(f"loaded {len(edge_removals)} edge removal(s) from {args.edge_removals}")
+        except FileNotFoundError:
+            log(f"edge-removals file not found: {args.edge_removals}")
+        except (json.JSONDecodeError, OSError) as e:
+            log(f"could not read edge-removals: {e}")
+
     gb = ClangGraphBuilder(log=log)
     graph = gb.build(files, extra_args, cache_dir=args.cache_dir,
-                     fp_overrides=fp_overrides)
+                     fp_overrides=fp_overrides, edge_removals=edge_removals)
 
     # Merge stack usage.
     su = scan_su_directory(args.su_dir) if args.su_dir else {}
@@ -197,6 +212,10 @@ def main(argv=None):
                     help="path to a JSON file of call-site function-pointer "
                          "overrides {overrides:[{caller,file,line,targets[]}]} "
                          "to narrow/add indirect targets and mark them verified")
+    ap.add_argument("--edge-removals", default="",
+                    help="path to a JSON file of impossible call edges to prune "
+                         "{removals:[{caller,callee,file?}]} — removes that "
+                         "caller->callee edge (direct or fp) from the graph")
     ap.add_argument("--report", default="", help="write an HTML report to this path")
     ap.add_argument("--csv", default="", help="write a CSV report to this path")
     ap.add_argument("--roots-only", action="store_true",

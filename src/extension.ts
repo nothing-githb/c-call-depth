@@ -193,13 +193,17 @@ export async function activate(context: vscode.ExtensionContext) {
           "cCallDepth.pythonPath",
           "cCallDepth.libclangPath",
           "cCallDepth.clangArgs",
-          "cCallDepth.fpOverridesPath"
+          "cCallDepth.fpOverridesPath",
+          "cCallDepth.edgeRemovalsPath"
         ];
         for (const k of contentKeys) if (e.affectsConfiguration(k)) {
           // If the fp-overrides path itself changed, re-point the custom
           // watcher at the new file so future edits to it auto-refresh too.
           if (e.affectsConfiguration("cCallDepth.fpOverridesPath")) {
             rewatchCustomFpOverrides?.();
+          }
+          if (e.affectsConfiguration("cCallDepth.edgeRemovalsPath")) {
+            rewatchCustomEdgeRemovals?.();
           }
           if (e.affectsConfiguration("cCallDepth.compileCommandsDir")) {
             loadCompileCommandsSet?.();
@@ -295,6 +299,25 @@ export async function activate(context: vscode.ExtensionContext) {
     fpCustomWatcher.onDidDelete(() => scheduleAnalysisDebounced());
   };
   rewatchCustomFpOverrides();
+  // The edge-removals JSON (impossible call edges to prune) affects the
+  // analysis too — same watching strategy as fp-overrides.
+  const edgeRmWatcher = vscode.workspace.createFileSystemWatcher("**/edge-removals.json");
+  let edgeRmCustomWatcher: vscode.FileSystemWatcher | undefined;
+  const rewatchCustomEdgeRemovals = () => {
+    edgeRmCustomWatcher?.dispose();
+    edgeRmCustomWatcher = undefined;
+    const setting = vscode.workspace.getConfiguration("cCallDepth").get<string>("edgeRemovalsPath", "");
+    if (!setting) return;                          // default name already covered
+    const base = path.basename(setting);
+    if (base === "edge-removals.json") return;     // already covered by edgeRmWatcher
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const abs = path.isAbsolute(setting) ? setting : (root ? path.join(root, setting) : setting);
+    edgeRmCustomWatcher = vscode.workspace.createFileSystemWatcher(abs);
+    edgeRmCustomWatcher.onDidChange(() => scheduleAnalysisDebounced());
+    edgeRmCustomWatcher.onDidCreate(() => scheduleAnalysisDebounced());
+    edgeRmCustomWatcher.onDidDelete(() => scheduleAnalysisDebounced());
+  };
+  rewatchCustomEdgeRemovals();
   context.subscriptions.push(
     suWatcher,
     suWatcher.onDidChange(() => scheduleAnalysisDebounced()),
@@ -312,7 +335,12 @@ export async function activate(context: vscode.ExtensionContext) {
     fpOvWatcher.onDidChange(() => scheduleAnalysisDebounced()),
     fpOvWatcher.onDidCreate(() => scheduleAnalysisDebounced()),
     fpOvWatcher.onDidDelete(() => scheduleAnalysisDebounced()),
-    { dispose: () => fpCustomWatcher?.dispose() }
+    edgeRmWatcher,
+    edgeRmWatcher.onDidChange(() => scheduleAnalysisDebounced()),
+    edgeRmWatcher.onDidCreate(() => scheduleAnalysisDebounced()),
+    edgeRmWatcher.onDidDelete(() => scheduleAnalysisDebounced()),
+    { dispose: () => fpCustomWatcher?.dispose() },
+    { dispose: () => edgeRmCustomWatcher?.dispose() }
   );
 
   // The analyzer uses libclang via the bundled Python CLI; clangd is not
@@ -446,6 +474,17 @@ async function runPythonAnalysis(
     if (fs.existsSync(def)) fpOverridesPath = def;
   }
 
+  // Resolve the edge-removals JSON: explicit setting, else <root>/edge-removals.json.
+  const edgeRemovalsSetting = cfg.get<string>("edgeRemovalsPath", "");
+  let edgeRemovalsPath = "";
+  if (edgeRemovalsSetting) {
+    edgeRemovalsPath = path.isAbsolute(edgeRemovalsSetting)
+      ? edgeRemovalsSetting : path.join(root, edgeRemovalsSetting);
+  } else {
+    const def = path.join(root, "edge-removals.json");
+    if (fs.existsSync(def)) edgeRemovalsPath = def;
+  }
+
   setStatus("analyzing (libclang)…");
   const tStart = Date.now();
   log.info("run", "===== analysis starting (python-cli / libclang backend) =====");
@@ -461,6 +500,7 @@ async function runPythonAnalysis(
       compileCommandsDir,
       cacheDir,
       fpOverridesPath,
+      edgeRemovalsPath,
       root,
       suDir: resolvedSu,
       rootPatterns,

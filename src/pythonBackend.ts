@@ -31,6 +31,7 @@ export async function runPythonBackend(opts: {
   compileCommandsDir: string;
   cacheDir?: string;
   fpOverridesPath?: string;
+  edgeRemovalsPath?: string;
   root: string;
   suDir: string;
   rootPatterns: string[];
@@ -50,6 +51,7 @@ export async function runPythonBackend(opts: {
   if (opts.compileCommandsDir) { args.push(`--compile-commands-dir=${opts.compileCommandsDir}`); }
   if (opts.cacheDir) { args.push(`--cache-dir=${opts.cacheDir}`); }
   if (opts.fpOverridesPath) { args.push(`--fp-overrides=${opts.fpOverridesPath}`); }
+  if (opts.edgeRemovalsPath) { args.push(`--edge-removals=${opts.edgeRemovalsPath}`); }
   if (opts.libclangPath) { args.push(`--libclang=${opts.libclangPath}`); }
   for (const p of opts.rootPatterns) { args.push(`--root-pattern=${p}`); }
   for (const a of opts.clangArgs) { args.push(`--clang-arg=${a}`); }

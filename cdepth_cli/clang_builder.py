@@ -28,6 +28,8 @@ from typing import Callable, Optional
 
 import clang.cindex as ci
 
+from .edge_ops import apply_edge_removals
+
 
 # ── libclang library discovery ──────────────────────────────────────────
 def configure_libclang(explicit: str = "") -> str:
@@ -587,7 +589,8 @@ class ClangGraphBuilder:
 
     def build(self, files: list[tuple[str, list[str]]],
               extra_args: list[str], cache_dir: str = "",
-              fp_overrides: list = None) -> dict[str, dict]:
+              fp_overrides: list = None,
+              edge_removals: list = None) -> dict[str, dict]:
         """files: list of (path, per-file-args). extra_args appended to every
         parse. Returns name → record.
 
@@ -854,6 +857,10 @@ class ClangGraphBuilder:
                 "conditional": cond_out,
                 "fpSites": sorted(fp_sites.get(usr, []), key=lambda s: s["line"]),
             }
+
+        # Prune explicitly-excluded caller→callee edges (impossible calls) last,
+        # so they leave the graph, peak, depth, and paths entirely. See edge_ops.
+        apply_edge_removals(out, edge_removals, self._log)
         return out
 
 

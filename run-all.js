@@ -118,6 +118,7 @@ const SUITES = [
   { file: "examples-count-test.py",     kind: "py-analysis", arg: ALLF },
   { file: "pinned-root-test.py",        kind: "py-analysis", arg: ALLFP },
   { file: "fp-override-test.py",        kind: "py" },
+  { file: "edge-removal-test.py",       kind: "py" },
 ];
 
 function run() {

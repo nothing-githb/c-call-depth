@@ -5,6 +5,12 @@ documented here. This project adheres to [Semantic Versioning](https://semver.or
 
 ## 1.40.0
 
+- New: **edge removals** — prune impossible `caller → callee` calls via a JSON
+  file (`cCallDepth.edgeRemovalsPath`, default `<workspace>/edge-removals.json`,
+  `{removals:[{caller,callee,file?}]}`). The edge is removed wherever it appears
+  (direct, fp/indirect, conditional), so it leaves the graph, peak, depth, and
+  paths. The complement of fp-overrides (which narrow/verify rather than delete);
+  the file auto-refreshes on change.
 - Fix: the function detail's **Calls into** list, sorted by **hops**, now
   surfaces the function's deepest downward chain — so its top hop count matches
   the **Top by depth** (`d:N`) value in the Overview. The deepest chain is

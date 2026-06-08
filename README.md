@@ -177,6 +177,34 @@ its condition holds — so `dispatch` reached from `task_a` includes only
 (root-independent) top-card peak still treats every conditional edge as active
 (absolute worst case).
 
+### Removing impossible edges
+
+Sometimes the analyzer records a call that can't actually happen in your build —
+an over-approximated function-pointer target, a call guarded out by a macro, or
+a hand-written assumption you want to encode. You can prune specific
+**caller → callee** edges with a JSON file (default `<workspace>/edge-removals.json`,
+or set `cCallDepth.edgeRemovalsPath`):
+
+```jsonc
+{
+  "removals": [
+    { "caller": "dispatch", "callee": "handler_legacy",
+      "file": "drivers/src/drivers.c",   // optional caller-file basename
+      "note": "never wired in this product variant" }
+  ]
+}
+```
+
+Each entry removes that one edge **wherever it came from** — a direct call, an
+fp/indirect target, or a conditional target — so the pruned edge disappears from
+the call graph, peak, depth, and the Calls-into/Callers paths entirely. Matching
+is by function **name** (`caller` + `callee`); a same-named static is matched by
+its bare name, and the optional `file` (the caller's file basename) disambiguates
+two callers that share a name. Removal is scoped to that caller: other callers of
+the same callee keep their edge. Editing the file re-runs analysis (unchanged
+sources are not re-parsed). This is the complement of fp-overrides: overrides
+**narrow/verify** fp targets, removals **delete** an edge outright.
+
 ## Side panel
 
 The side panel is split into two tabs that separate the two ways you use it:
@@ -406,6 +434,7 @@ flag.
 | `cCallDepth.pathsLimit` | `5` | Paths shown per direction in hover/panel. |
 | `cCallDepth.pathsMaxDepth` | `32` | Max path length explored. Raise for very deep chains. |
 | `cCallDepth.fpOverridesPath` | `""` | JSON of call-site fp overrides (manual verification/narrowing). Empty = `<workspace>/fp-overrides.json` if present. |
+| `cCallDepth.edgeRemovalsPath` | `""` | JSON of impossible call edges to prune (`{removals:[{caller,callee,file?}]}`). Empty = `<workspace>/edge-removals.json` if present. |
 | `cCallDepth.logLevel` | `info` | `debug` \| `info` \| `warn` \| `error`. |
 
 ## How it works (pipeline)

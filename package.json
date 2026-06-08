@@ -108,6 +108,11 @@
           "default": "",
           "description": "Path to a JSON file of call-site function-pointer overrides for manual verification/narrowing. Format: {\"overrides\":[{\"caller\":\"dispatch_isr\",\"via\":\"vector_table\",\"targets\":[\"isr_timer\",\"isr_uart\"]}]} — matched by caller + via (the fp variable/table name); file is an optional basename. Empty = use <workspace>/fp-overrides.json if present."
         },
+        "cCallDepth.edgeRemovalsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a JSON file of impossible call edges to prune from the graph. Format: {\"removals\":[{\"caller\":\"dispatch\",\"callee\":\"handler_x\",\"file\":\"drivers.c\"}]} — removes that caller→callee edge (direct or function-pointer) so it no longer appears in the graph, peak, depth, or paths. file is an optional caller-file basename. Empty = use <workspace>/edge-removals.json if present."
+        },
         "cCallDepth.logLevel": {
           "type": "string",
           "enum": ["debug", "info", "warn", "error"],

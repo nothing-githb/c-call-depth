@@ -28,28 +28,28 @@ def override_is_usable(ov):
     cond_has_targets = any((c or {}).get("targets") for c in cond)
     return bool(tgts) or cond_has_targets
 
-# 1) Empty targets, no conditional → NOT usable (ignored).
-check("empty targets, no conditional → ignored",
+# 1) Empty targets, no conditional -> NOT usable (ignored).
+check("empty targets, no conditional -> ignored",
       override_is_usable({"caller": "f", "via": "tbl", "targets": []}) is False)
 
-# 2) targets omitted entirely → NOT usable.
-check("targets omitted, no conditional → ignored",
+# 2) targets omitted entirely -> NOT usable.
+check("targets omitted, no conditional -> ignored",
       override_is_usable({"caller": "f", "via": "tbl"}) is False)
 
-# 3) Real targets → usable (binds).
-check("real targets → usable",
+# 3) Real targets -> usable (binds).
+check("real targets -> usable",
       override_is_usable({"caller": "f", "targets": ["g"]}) is True)
 
-# 4) Conditional with targets → usable (binds conditionally).
-check("conditional with targets → usable",
+# 4) Conditional with targets -> usable (binds conditionally).
+check("conditional with targets -> usable",
       override_is_usable({"caller": "f",
                           "conditional": [{"when": {"fromRoot": "r"}, "targets": ["g"]}]}) is True)
 
-# 5) Conditional present but its targets empty → NOT usable.
-check("conditional with empty targets → ignored",
+# 5) Conditional present but its targets empty -> NOT usable.
+check("conditional with empty targets -> ignored",
       override_is_usable({"caller": "f",
                           "conditional": [{"when": {"fromRoot": "r"}, "targets": []}]}) is False)
 
-print("\nFP-OVERRIDE: PASS — all checks passed." if failed == 0
-      else f"\nFP-OVERRIDE: FAIL — {failed} check(s) failed.")
+print("\nFP-OVERRIDE: PASS - all checks passed." if failed == 0
+      else f"\nFP-OVERRIDE: FAIL - {failed} check(s) failed.")
 sys.exit(0 if failed == 0 else 1)
