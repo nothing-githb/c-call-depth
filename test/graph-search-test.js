@@ -348,18 +348,26 @@ check("self-loop is an arc above the node (curved, tight x-span)", !!selfEdge, s
     }
     return null;
   }
-  const gA = nodeG2("A");
-  if (gA) gA.dispatchEvent(new window.MouseEvent("mouseenter", { bubbles: true }));
+  // Hovering the LEAF C highlights the whole focus→C path (F→A→B→C); the
+  // C→B back-edge is not a focus-step and stays dim.
+  const gC = nodeG2("C");
+  if (gC) gC.dispatchEvent(new window.MouseEvent("mouseenter", { bubbles: true }));
   const hl = window.document.querySelectorAll(".edge.edge-hl").length;
   const dim = window.document.querySelectorAll(".edge.edge-dim").length;
-  check("real hover: 3 forward-flow edges highlighted (F→A,A→B,B→C)", hl === 3, `hl=${hl}`);
-  check("real hover: the level-3→level-2 back-edge is dimmed", dim === 1, `dim=${dim}`);
+  check("focus→node path: the 3 edges on the focus→C path are highlighted (F→A,A→B,B→C)", hl === 3, `hl=${hl}`);
+  check("focus→node path: the level-3→level-2 back-edge is dimmed", dim === 1, `dim=${dim}`);
+  // Hovering an INTERMEDIATE node highlights ONLY the focus→node path, not the
+  // node's own continuation: hovering A lights just F→A.
+  const gA = nodeG2("A");
+  if (gA) gA.dispatchEvent(new window.MouseEvent("mouseenter", { bubbles: true }));
+  const hlA = window.document.querySelectorAll(".edge.edge-hl").length;
+  check("focus→node path: hovering intermediate A highlights ONLY F→A (no continuation)", hlA === 1, `hlA=${hlA}`);
 }
 
-// Corridor hover (the fix): hovering a callee lights ONLY the focus→callee
-// path, NOT that callee's other callers that don't come from the focus. Here P
-// calls both the focus F and the callee A; hovering A must highlight only F→A
-// and dim P→A (and P→F), with P left dim.
+// Off-focus edges are NOT drawn, and hovering a callee lights ONLY the
+// focus→callee path. P calls both the focus F and the callee A; the P→A edge is
+// off-focus, so it must not be rendered at all, and hovering A highlights only
+// F→A (with the off-focus caller P left dim).
 {
   window.dispatchEvent(new window.MessageEvent("message", { data: {
     type: "graph", focus: "F", thresholds: { warn: 1024, critical: 4096 },
@@ -371,7 +379,7 @@ check("self-loop is an arc above the node (curved, tight x-span)", !!selfEdge, s
     ], edges: [
       { from: "P", to: "F", offFocus: false },
       { from: "F", to: "A", offFocus: false },
-      { from: "P", to: "A", offFocus: false }   // off-focus caller of the callee
+      { from: "P", to: "A", offFocus: true }   // off-focus → must NOT be drawn
     ] }
   } }));
   function nodeG3(label) {
@@ -384,13 +392,13 @@ check("self-loop is an arc above the node (curved, tight x-span)", !!selfEdge, s
     }
     return null;
   }
+  const drawnEdges = window.document.querySelectorAll(".edge").length;
+  check("off-focus edge (P→A) is not drawn (2 of 3 rendered)", drawnEdges === 2, `drawn=${drawnEdges}`);
   const gA = nodeG3("A");
   if (gA) gA.dispatchEvent(new window.MouseEvent("mouseenter", { bubbles: true }));
   const hlC = window.document.querySelectorAll(".edge.edge-hl").length;
-  const dimC = window.document.querySelectorAll(".edge.edge-dim").length;
-  check("corridor hover: only the focus→callee edge is highlighted", hlC === 1, `hl=${hlC}`);
-  check("corridor hover: off-focus caller edges (P→A, P→F) are dimmed", dimC === 2, `dim=${dimC}`);
-  check("corridor hover: the off-focus caller node P is dimmed",
+  check("hover: only the focus→callee edge (F→A) is highlighted", hlC === 1, `hl=${hlC}`);
+  check("hover: the off-focus caller node P is dimmed",
         nodeG3("P") && nodeG3("P").classList.contains("dimmed"));
 }
 

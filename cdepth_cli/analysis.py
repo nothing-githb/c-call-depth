@@ -29,12 +29,11 @@ sys.setrecursionlimit(1 << 20)
 class FunctionInfo:
     __slots__ = ("name", "file", "line", "callees", "stack_bytes",
                  "stack_qualifier", "indirect_callees", "decl_file",
-                 "fp_verified", "conditional_callees", "removed_callees")
+                 "fp_verified", "conditional_callees")
 
     def __init__(self, name, file, line, callees, stack_bytes=None,
                  stack_qualifier="", indirect_callees=None, decl_file=None,
-                 fp_verified=False, conditional_callees=None,
-                 removed_callees=None):
+                 fp_verified=False, conditional_callees=None):
         self.name = name
         self.file = file
         self.line = line
@@ -56,11 +55,6 @@ class FunctionInfo:
         # and recursion as possible edges), but per-root peak only follows them
         # when the condition holds for that root/path.
         self.conditional_callees = conditional_callees or []
-        # Conditional edge removals: list of {"callee": bare-name, "cond": <dict>}.
-        # The callee stays in `callees` (so own-peak/downDepth keep the worst
-        # case), but a per-root traversal DROPS it whenever `cond` holds for that
-        # root/path — the symmetric inverse of conditional_callees.
-        self.removed_callees = removed_callees or []
 
 
 def _tarjan_scc(names: list[str], callees: dict[str, list[str]]) -> dict[str, int]:
@@ -195,18 +189,7 @@ def compute_analysis(functions: dict[str, FunctionInfo],
                 if t in functions:
                     cond_map[n][t] = cond
             _collect_cond_funcs(cond)
-    # Conditional edge removals: remove_map[n] = [(callee_bare_name, cond), ...].
-    # A per-root traversal drops the edge n→callee whenever cond holds.
-    remove_map: dict[str, list] = {n: [] for n in names}
-    for n in names:
-        for rc in functions[n].removed_callees:
-            cb = str(rc.get("callee", ""))
-            if cb:
-                cond = rc.get("cond")
-                remove_map[n].append((cb, cond))
-                _collect_cond_funcs(cond)
-    has_conditions = (any(cond_map[n] for n in names)
-                      or any(remove_map[n] for n in names))
+    has_conditions = any(cond_map[n] for n in names)
     # Cap distinct callerContains functions so the path mask stays small
     # (state space is N·2^k). Beyond the cap, treat callerContains as always
     # true (safe over-approximation).
@@ -240,24 +223,15 @@ def compute_analysis(functions: dict[str, FunctionInfo],
         return (1 << b) if b is not None else 0
 
     def active_callees(n: str, root: str, mask: int):
-        """Callees active under (root, mask): static edges, minus conditional-add
-        edges whose condition fails, minus conditional-removal edges whose
-        condition holds. mask must already include n's own bit."""
+        """Callees active under (root, mask): static edges plus conditional-add
+        edges whose condition holds. (Edge REMOVALS — including conditional ones —
+        are already pruned from `callees` globally by edge_ops, so they need no
+        handling here.) mask must already include n's own bit."""
         cm = cond_map[n]
-        rmv = remove_map[n]
-        if not cm and not rmv:
+        if not cm:
             return callees[n]
-        result = []
-        for c in callees[n]:
-            if c in cm and not eval_cond(cm[c], root, mask):
-                continue
-            if rmv:
-                cb = c.split("@", 1)[0]
-                if any((rb == cb or rb == c) and eval_cond(rcond, root, mask)
-                       for (rb, rcond) in rmv):
-                    continue
-            result.append(c)
-        return result
+        return [c for c in callees[n]
+                if c not in cm or eval_cond(cm[c], root, mask)]
 
     def peak(n: str, visiting: set[str]) -> tuple[int, bool]:
         if n in peak_cache:

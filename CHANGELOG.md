@@ -3,6 +3,20 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.43.0
+
+- **Conditional edge removals are now global.** A removal with a `when` is
+  evaluated statically against the call graph (`callerContains C` / `fromRoot C`
+  = "C reaches the edge's caller", transitively, combined with `all`/`any`/`not`)
+  and the matching edge is pruned from the **single shared graph** — so it now
+  shows up in **every** view (call graph, own peak, downDepth, per-root
+  Depth/Peak, Calls-into/Callers), not just the per-root numbers. Previously a
+  conditional removal only affected per-root analysis.
+- Call graph: **off-focus "cross" edges are no longer drawn** (the faint dashed
+  links that don't lie on the focus's call flow); recursion/cycle back-edges are
+  kept. Hovering a node now highlights **only the focus→node paths** — the node's
+  own further sub-tree is no longer lit up.
+
 ## 1.42.1
 
 - Fix: saving **edge-removals.json** (or fp-overrides.json / compile_commands.json,

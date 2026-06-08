@@ -500,15 +500,15 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
       for (const n of downF) keep.add(n);
       for (const n of upF) keep.add(n);
     } else if (downF.has(name)) {
-      // hovered node is a callee: focus→name corridor + name's own downstream.
+      // hovered node is a callee: highlight ONLY the focus→name corridor (every
+      // path from the focus down to it) — NOT the node's own further callees.
       const ancName = reach(name, rev);
       for (const n of downF) if (ancName.has(n)) keep.add(n);
-      for (const n of reach(name, fwd)) keep.add(n);
     } else if (upF.has(name)) {
-      // hovered node is a caller: name→focus corridor + name's own upstream.
+      // hovered node is a caller: highlight ONLY the name→focus corridor — NOT
+      // the node's own further callers.
       const descName = reach(name, fwd);
       for (const n of upF) if (descName.has(n)) keep.add(n);
-      for (const n of reach(name, rev)) keep.add(n);
     }
 
     for (const [nm, g] of nodeEls) {
@@ -827,8 +827,13 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
     // them. Self-calls (from === to) are kept (drawn as a self-loop arc).
     const layerOf = new Map();
     for (const n of renderNodes) layerOf.set(n.name, n.layer);
+    // Drop same-layer connectors AND off-focus "cross" edges (the faint dashed
+    // links that don't lie on the focus's call flow) — they clutter the view.
+    // Recursion/cycle back-edges (e.recursive) are KEPT even when off-focus, so
+    // cycles stay visible. Self-calls (from === to) are kept (self-loop arc).
     const drawEdges = renderEdges.filter(e =>
-      e.from === e.to || layerOf.get(e.from) !== layerOf.get(e.to));
+      (e.from === e.to || layerOf.get(e.from) !== layerOf.get(e.to)) &&
+      (!e.offFocus || e.recursive));
     const edgeKey = new Set();
     for (const e of drawEdges) edgeKey.add(e.from + '\u0000' + e.to);
     const hasReverse = (e) => edgeKey.has(e.to + '\u0000' + e.from);
@@ -862,7 +867,7 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
     for (const e of drawEdges) {
       const a = pos.get(e.from), b = pos.get(e.to);
       if (!a || !b) continue;
-      const cls = 'edge' + (e.indirect ? ' indirect' : '') + (e.fpVerified ? ' fp-verified' : '') + (e.offFocus ? ' cross' : '');
+      const cls = 'edge' + (e.indirect ? ' indirect' : '') + (e.fpVerified ? ' fp-verified' : '');
       let d, arrowD;
       if (e.from === e.to) {
         // Self-loop: a small rounded arc on top of the node so it's clearly

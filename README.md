@@ -207,34 +207,35 @@ Editing the file re-runs analysis (unchanged sources are not re-parsed). This is
 the complement of fp-overrides: overrides **narrow/verify** fp targets, removals
 **delete** an edge outright.
 
-#### Conditional (per-root) removals
+#### Conditional removals
 
-Add a `when` condition to remove the edge **only on matching paths** instead of
-globally — the same condition grammar as conditional fp-overrides:
+Add a `when` condition to remove an edge only when a guard holds:
 
 ```jsonc
 {
   "removals": [
-    // dispatch → handler_b never happens when the call originates at task_a
+    // remove dispatch→handler_b only if task_a reaches dispatch
     { "caller": "dispatch", "callee": "handler_b", "when": { "fromRoot": "task_a" } },
-    // drop the edge only on paths that pass through isr_ctx
+    // remove dispatch→handler_c only if isr_ctx reaches dispatch
     { "caller": "dispatch", "callee": "handler_c", "when": { "callerContains": "isr_ctx" } },
     { "caller": "f", "callee": "g", "when": { "any": [ { "fromRoot": "a" }, { "fromRoot": "b" } ] } },
-    // caller omitted = ANY function: "if a path comes through A, nothing reaches B"
+    // caller omitted = ANY caller of B: drop X→B for every X that A reaches
     { "callee": "B", "when": { "callerContains": "A" } }
   ]
 }
 ```
 
-Conditions: `fromRoot` (analysis started at this root), `callerContains` (this
-function is on the current path), combined with `all` / `any` / `not`. Omit
-`caller` (or use `"*"`) to apply the rule to **every** caller of `callee` — e.g.
-"if a path comes through A, it can't reach B" is one caller-less entry. **Scope:**
-a conditional removal applies to the **per-root analysis only** — it lowers the
-per-root **Depth** and **Peak (from root)** for the matching root(s). The edge
-stays in the global call graph and the root-independent **own peak** keeps the
-worst case (exactly like a conditional fp *add*). A removal **without** `when` is
-unconditional and prunes the edge everywhere.
+Conditions: `callerContains C` / `fromRoot C` both mean **"C reaches the edge's
+caller"** (C is a transitive caller), combined with `all` / `any` / `not`. The
+condition is evaluated **statically against the call graph**, so a conditional
+removal is **global, like an unconditional one** — the matching edge is pruned
+from the single shared graph and therefore disappears from **every** view (the
+call graph, own peak, downDepth, per-root Depth/Peak, and the Calls-into/Callers
+paths). Omit `caller` (or use `"*"`) to apply the rule to every caller of
+`callee`. Note: because the graph is a single static structure, removing an edge
+removes it for **all** callers of that node — e.g. with a named caller `A→B`,
+`A→B` is gone for every caller of `A`, not just on paths through the condition's
+function.
 
 ## Side panel
 
