@@ -3,6 +3,14 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.44.0
+
+- **Recursion paths** in the side panel are now shown as **numbered steps** with
+  an explicit `↺ back to 1 · <start>` loop-back line, instead of a horizontal
+  `A → B → C → A` chain that repeated the start node. The repeated node is gone
+  and the loop closure is spelled out, so cycles (including long ones) read more
+  clearly. Each step is still clickable.
+
 ## 1.43.0
 
 - **Conditional edge removals are now global.** A removal with a `when` is

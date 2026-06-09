@@ -257,6 +257,38 @@ if (calleeHead) {
         recBlk2.style.display === "none");
 }
 
+// ── Recursion paths: numbered steps + explicit loop-back (no repeated node) ──
+{
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "result", payload: {
+    name: "parse_expr", file: "p.c", nameLine: 1, recursive: true, recursiveViaFp: false,
+    fpVerified: false, pinnedRoot: false, autoRoot: false, depth: 1,
+    stackBytes: 64, cumulativeStack: 1200, cumulativeBounded: true,
+    perRoot: [], outgoing: [], incoming: [], outgoingTotal: 0, incomingTotal: 0,
+    cyclesTruncated: false, cyclesLimitHit: null,
+    cycles: [{ nodes: ["parse_expr", "parse_term", "parse_factor", "parse_expr"],
+               totalStack: 1200, truncatedByCycle: true, rootIsPinned: false }],
+    pathCap: 500, thresholdWarn: 1024, thresholdCritical: 4096
+  } } }));
+  const res = doc.getElementById("result");
+  const steps = Array.from(res.querySelectorAll(".cycle-steps .cycle-row:not(.cycle-back)"));
+  check("recursion: cycle is rendered as numbered steps", steps.length === 3, `steps=${steps.length}`);
+  const nums = steps.map(r => r.querySelector(".step-no").textContent.trim());
+  check("recursion: steps are numbered 1..N", nums.join(",") === "1,2,3", nums.join(","));
+  const stepNames = steps.map(r => r.querySelector(".fn-clickable").getAttribute("data-fn"));
+  check("recursion: each step is a DISTINCT node (start not repeated)",
+        stepNames.join(",") === "parse_expr,parse_term,parse_factor", stepNames.join(","));
+  const back = res.querySelector(".cycle-row.cycle-back");
+  check("recursion: explicit loop-back row 'back to 1' present", !!back && /back to 1/.test(back.textContent), back && back.textContent);
+  check("recursion: loop-back gutter is ↺ (not a plain arrow)",
+        back && back.querySelector(".step-no").textContent.trim() === "↺");
+  check("recursion: loop-back links to the start node (clickable)",
+        !!(back && back.querySelector('[data-fn="parse_expr"]')));
+  const head = res.querySelector(".cycle-steps .cycle-head");
+  check("recursion: header shows the loop + hop count", !!head && /3 hops/.test(head.textContent) && /loop/.test(head.textContent));
+  check("recursion: no horizontal arrow chain (.path-chain) used for the cycle",
+        res.querySelectorAll(".cycle-steps .path-chain").length === 0);
+}
+
 console.log(failed === 0
   ? "\nCOLLAPSIBLE-REVEAL: PASS — accordion + incremental reveal work for rec/unbound."
   : `\nCOLLAPSIBLE-REVEAL: FAIL — ${failed} check(s) failed.`);

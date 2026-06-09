@@ -790,6 +790,22 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     font-family: var(--vscode-editor-font-family);
   }
   .cycle { color: rgb(230,90,90); }
+  /* Recursion cycle — numbered steps + explicit loop-back line */
+  .cycle-steps { margin: 4px 0 10px; padding-left: 2px; }
+  .cycle-head { font-size: 10px; margin-bottom: 4px; color: var(--vscode-descriptionForeground); }
+  .cycle-row { display: flex; align-items: baseline; gap: 8px; padding: 1px 0; line-height: 1.5; }
+  .cycle-row .step-no {
+    flex: 0 0 auto; min-width: 16px; text-align: right;
+    color: var(--vscode-descriptionForeground); font-variant-numeric: tabular-nums;
+    font-family: var(--vscode-editor-font-family); font-size: 11px;
+  }
+  .cycle-row .fn-clickable {
+    cursor: pointer; color: var(--vscode-textLink-foreground);
+    font-family: var(--vscode-editor-font-family);
+  }
+  .cycle-row .fn-clickable:hover { text-decoration: underline; }
+  .cycle-row.cycle-back { margin-top: 2px; color: var(--vscode-descriptionForeground); }
+  .cycle-row.cycle-back .step-no { color: rgb(230,90,90); }
   /* Chips (recent) */
   .chip-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 2px; }
   .chip {
@@ -1513,6 +1529,39 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     return html;
   }
 
+  // Recursion cycles, shown as NUMBERED steps with an explicit loop-back line —
+  // clearer than a horizontal "A → B → C → A" chain (no repeated node; the loop
+  // closure is spelled out). cycle nodes close on the start (nodes[last] ===
+  // nodes[0]); we drop that repeat for numbering and reference it in the footer.
+  function renderCyclePaths(paths) {
+    if (!paths || paths.length === 0) return '<div class="empty">none</div>';
+    let html = '';
+    for (const p of paths) {
+      const nodes = p.nodes.slice();
+      let loopTo = 0;
+      if (nodes.length >= 2 && nodes[nodes.length - 1] === nodes[0]) {
+        nodes.pop();                                   // drop the closing repeat of the start
+      } else if (nodes.length >= 2) {
+        const li = nodes.slice(0, -1).indexOf(nodes[nodes.length - 1]);
+        if (li >= 0) { loopTo = li; nodes.pop(); }     // closes on an interior node (rare)
+      }
+      const hops = p.nodes.length - 1;
+      const fn = (n, pinned) => '<span class="fn-clickable' + (pinned ? ' fn-pinned' : '') +
+        '" data-fn="' + escape(n) + '">' + escape(n) + '</span>';
+      html += '<div class="path path-recursive cycle-steps">';
+      html += '<div class="cycle-head"><span class="cycle">↻ loop</span> · ' +
+        hops + ' hops · total ' + fmtBytes(p.totalStack) + '</div>';
+      for (let i = 0; i < nodes.length; i++) {
+        html += '<div class="cycle-row"><span class="step-no">' + (i + 1) + '</span>' +
+          fn(nodes[i], i === 0 && p.rootIsPinned) + '</div>';
+      }
+      html += '<div class="cycle-row cycle-back"><span class="step-no">↺</span>' +
+        '<span>back to ' + (loopTo + 1) + ' · ' + fn(nodes[loopTo], false) + '</span></div>';
+      html += '</div>';
+    }
+    return html;
+  }
+
   function pushRecent(name) {
     recent = [name, ...recent.filter(n => n !== name)].slice(0, 6);
     renderRecent();
@@ -1998,7 +2047,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
           : 'This function appears recursive only through a function-pointer table (over-approximated — the loop may not be real).') +
         more +
         '</div>';
-      rows += renderPaths(r.cycles, true /* recursive styling */);
+      rows += renderCyclePaths(r.cycles);
       html += renderRevealSection(
         'Recursion paths ' + (certain ? '↻' : '↻?'),
         rows, r.cycles.length, { note: 'loops back to ' + escape(r.name), capAt: 50 });
