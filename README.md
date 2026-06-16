@@ -454,7 +454,7 @@ flag.
 | Setting | Default | Meaning |
 |---|---|---|
 | `cCallDepth.suDirectory` | `""` | Directory scanned for `.su` files (stack frames). Empty disables stack-usage analysis. |
-| `cCallDepth.compileCommandsDir` | `""` | Path to `compile_commands.json` or its directory. Empty = workspace root, then `build/`. |
+| `cCallDepth.compileCommandsDir` | `""` | Path to `compile_commands.json` or its directory. Supports `${...}` variables (see [Path variables](#path-variables)). Empty = workspace root, then `build/`. |
 | `cCallDepth.rootPatterns` | `[]` | Header globs whose declared functions become pinned roots. |
 | `cCallDepth.pythonPath` | `python3` | Python 3 interpreter that runs the analyzer. |
 | `cCallDepth.libclangPath` | `""` | libclang `.so/.dylib/.dll` file or its directory. Empty = auto-detect. |
@@ -468,6 +468,24 @@ flag.
 | `cCallDepth.fpOverridesPath` | `""` | JSON of call-site fp overrides (manual verification/narrowing). Empty = `<workspace>/fp-overrides.json` if present. |
 | `cCallDepth.edgeRemovalsPath` | `""` | JSON of impossible call edges to prune (`{removals:[{caller,callee,file?}]}`). Empty = `<workspace>/edge-removals.json` if present. |
 | `cCallDepth.logLevel` | `info` | `debug` \| `info` \| `warn` \| `error`. |
+
+### Path variables
+
+The path settings — `compileCommandsDir`, `suDirectory`, `fpOverridesPath`,
+`edgeRemovalsPath`, `libclangPath`, `pythonPath`, and `clangArgs` — expand
+VS Code-style `${...}` variables, so a path can reference the workspace, the
+environment, your home directory, or **another setting**. For example, reuse a
+build directory defined by the CMake Tools extension instead of duplicating it:
+
+```jsonc
+// .vscode/settings.json
+"cCallDepth.compileCommandsDir": "${config:cmake.buildDirectory}/compile_commands.json"
+```
+
+Supported: `${workspaceFolder}`, `${workspaceFolder:Name}` (multi-root),
+`${userHome}`, `${pathSeparator}` (`${/}`), `${env:NAME}`, and
+`${config:section.key}` (any other setting's value). Unknown variables are left
+untouched. Plain absolute paths and workspace-relative paths still work as before.
 
 ## How it works (pipeline)
 
