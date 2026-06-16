@@ -110,6 +110,7 @@ const SUITES = [
   { file: "per-root-graph-test.js",     kind: "js" },
   { file: "decoration-hover-test.js",   kind: "js" },
   { file: "recursion-path-test.js",     kind: "js" },
+  { file: "config-vars-test.js",        kind: "js" },
   { file: "depth-consistency-test.js",  kind: "js" },
   { file: "fp-advanced-test.js",        kind: "js-analysis", arg: ALLF },
   { file: "fp-struct-runtime-test.js",  kind: "js-analysis", arg: ALLF },

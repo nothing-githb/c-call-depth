@@ -2,7 +2,7 @@
   "name": "c-call-depth",
   "displayName": "C Stack Analysis & Call Graph",
   "description": "Visualize C call depth, worst-case stack usage (-fstack-usage), and the call graph inline — built for embedded/firmware and DO-178C / ISO 26262 stack-usage review.",
-  "version": "1.44.0",
+  "version": "1.45.0",
   "publisher": "halistahasahin",
   "license": "MIT",
   "pricing": "Free",
@@ -60,7 +60,7 @@
         "cCallDepth.suDirectory": {
           "type": "string",
           "default": "",
-          "description": "Directory to scan recursively for .su files (produced by gcc/clang -fstack-usage). Relative paths resolve against the workspace root. Empty disables stack-usage analysis. Typical values: \"build\", \"out\", \"_build\"."
+          "description": "Directory to scan recursively for .su files (produced by gcc/clang -fstack-usage). Relative paths resolve against the workspace root. Empty disables stack-usage analysis. Typical values: \"build\", \"out\", \"_build\". Supports ${workspaceFolder}, ${userHome}, ${env:NAME}, ${config:other.setting}."
         },
         "cCallDepth.rootPatterns": {
           "type": "array",
@@ -106,12 +106,12 @@
         "cCallDepth.fpOverridesPath": {
           "type": "string",
           "default": "",
-          "description": "Path to a JSON file of call-site function-pointer overrides for manual verification/narrowing. Format: {\"overrides\":[{\"caller\":\"dispatch_isr\",\"via\":\"vector_table\",\"targets\":[\"isr_timer\",\"isr_uart\"]}]} — matched by caller + via (the fp variable/table name); file is an optional basename. Empty = use <workspace>/fp-overrides.json if present."
+          "description": "Path to a JSON file of call-site function-pointer overrides for manual verification/narrowing. Format: {\"overrides\":[{\"caller\":\"dispatch_isr\",\"via\":\"vector_table\",\"targets\":[\"isr_timer\",\"isr_uart\"]}]} — matched by caller + via (the fp variable/table name); file is an optional basename. Supports ${workspaceFolder}/${userHome}/${env:NAME}/${config:other.setting}. Empty = use <workspace>/fp-overrides.json if present."
         },
         "cCallDepth.edgeRemovalsPath": {
           "type": "string",
           "default": "",
-          "description": "Path to a JSON file of impossible call edges to prune. Format: {\"removals\":[{\"caller\":\"dispatch\",\"callee\":\"handler_x\",\"file\":\"drivers.c\"}]} — removes that caller→callee edge (direct or function-pointer). Only callee is required; caller is optional (omit or \"*\" = any caller of callee). Without a condition it is pruned everywhere (graph, peak, depth, paths). Add a \"when\" (callerContains/fromRoot C = C reaches the caller, combinable with all/any/not) to remove it only when the condition holds; conditions are evaluated statically against the graph, so the removal is global (affects the graph, peak, depth and paths) like an unconditional one. file is an optional caller-file basename. Empty = use <workspace>/edge-removals.json if present."
+          "description": "Path to a JSON file of impossible call edges to prune. Format: {\"removals\":[{\"caller\":\"dispatch\",\"callee\":\"handler_x\",\"file\":\"drivers.c\"}]} — removes that caller→callee edge (direct or function-pointer). Only callee is required; caller is optional (omit or \"*\" = any caller of callee). Without a condition it is pruned everywhere (graph, peak, depth, paths). Add a \"when\" (callerContains/fromRoot C = C reaches the caller, combinable with all/any/not) to remove it only when the condition holds; conditions are evaluated statically against the graph, so the removal is global (affects the graph, peak, depth and paths) like an unconditional one. file is an optional caller-file basename. Supports ${workspaceFolder}/${userHome}/${env:NAME}/${config:other.setting}. Empty = use <workspace>/edge-removals.json if present."
         },
         "cCallDepth.logLevel": {
           "type": "string",
@@ -133,7 +133,7 @@
         "cCallDepth.libclangPath": {
           "type": "string",
           "default": "",
-          "description": "Path to libclang.so/.dylib/.dll for the 'python-cli' backend — either the library file itself or the directory containing it. On Windows, pointing at the directory lets the loader find libclang.dll's sibling DLLs. Leave empty to auto-detect (the pip 'libclang' package ships one). Only used by the python-cli backend."
+          "description": "Path to libclang.so/.dylib/.dll for the 'python-cli' backend — either the library file itself or the directory containing it. On Windows, pointing at the directory lets the loader find libclang.dll's sibling DLLs. Leave empty to auto-detect (the pip 'libclang' package ships one). Supports ${workspaceFolder}/${userHome}/${env:NAME}/${config:other.setting}. Only used by the python-cli backend."
         },
         "cCallDepth.clangArgs": {
           "type": "array",
@@ -144,7 +144,7 @@
         "cCallDepth.compileCommandsDir": {
           "type": "string",
           "default": "",
-          "description": "Path to compile_commands.json, or the directory containing it, for the 'python-cli' backend (relative to the workspace or absolute). Defaults to the workspace root, then a 'build' subdir. The backend analyzes exactly the translation units listed there."
+          "description": "Path to compile_commands.json, or the directory containing it, for the 'python-cli' backend (relative to the workspace or absolute). Supports ${workspaceFolder}, ${userHome}, ${env:NAME}, and ${config:other.setting} so you can reuse a path defined elsewhere — e.g. \"${config:cmake.buildDirectory}/compile_commands.json\". Defaults to the workspace root, then a 'build' subdir. The backend analyzes exactly the translation units listed there."
         }
       }
     },

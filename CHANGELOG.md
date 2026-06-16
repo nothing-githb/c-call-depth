@@ -3,6 +3,19 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.45.0
+
+- Path settings now support **VS Code-style `${...}` variables**, so a path can
+  reference the workspace, the environment, the user's home, or **another
+  configuration value**. For example, point the analyzer at a build dir defined by
+  another extension:
+  `"cCallDepth.compileCommandsDir": "${config:cmake.buildDirectory}/compile_commands.json"`.
+  Supported: `${workspaceFolder}`, `${workspaceFolder:Name}`, `${userHome}`,
+  `${pathSeparator}` (`${/}`), `${env:NAME}`, and `${config:section.key}`.
+  Applies to `compileCommandsDir`, `suDirectory`, `fpOverridesPath`,
+  `edgeRemovalsPath`, `libclangPath`, `pythonPath`, and `clangArgs`. Unknown
+  variables are left untouched.
+
 ## 1.44.0
 
 - **Recursion paths** in the side panel are now shown as **numbered steps** with

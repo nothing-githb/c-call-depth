@@ -2,6 +2,8 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
+import * as os from "os";
+import { expandConfigVars, VarContext } from "./configVars";
 import {
   FunctionRecord,
   DepthInfo
@@ -225,7 +227,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const resolveCompileCommandsPath = (): string | undefined => {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!root) { return undefined; }
-    const setting = vscode.workspace.getConfiguration("cCallDepth").get<string>("compileCommandsDir", "");
+    const setting = expandVar(vscode.workspace.getConfiguration("cCallDepth").get<string>("compileCommandsDir", ""));
     const cands: string[] = [];
     if (setting) {
       const abs = path.isAbsolute(setting) ? setting : path.join(root, setting);
@@ -270,7 +272,7 @@ export async function activate(context: vscode.ExtensionContext) {
         || base === "compile_commands.json") { return true; }
     const cfg = vscode.workspace.getConfiguration("cCallDepth");
     for (const key of ["edgeRemovalsPath", "fpOverridesPath"]) {
-      const v = cfg.get<string>(key, "");
+      const v = expandVar(cfg.get<string>(key, ""));
       if (v && path.basename(v).toLowerCase() === base) { return true; }
     }
     return false;
@@ -312,7 +314,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const rewatchCustomFpOverrides = () => {
     fpCustomWatcher?.dispose();
     fpCustomWatcher = undefined;
-    const setting = vscode.workspace.getConfiguration("cCallDepth").get<string>("fpOverridesPath", "");
+    const setting = expandVar(vscode.workspace.getConfiguration("cCallDepth").get<string>("fpOverridesPath", ""));
     if (!setting) return;                       // default name already covered
     const base = path.basename(setting);
     if (base === "fp-overrides.json") return;   // already covered by fpOvWatcher
@@ -331,7 +333,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const rewatchCustomEdgeRemovals = () => {
     edgeRmCustomWatcher?.dispose();
     edgeRmCustomWatcher = undefined;
-    const setting = vscode.workspace.getConfiguration("cCallDepth").get<string>("edgeRemovalsPath", "");
+    const setting = expandVar(vscode.workspace.getConfiguration("cCallDepth").get<string>("edgeRemovalsPath", ""));
     if (!setting) return;                          // default name already covered
     const base = path.basename(setting);
     if (base === "edge-removals.json") return;     // already covered by edgeRmWatcher
@@ -446,8 +448,24 @@ function scheduleAnalysis() {
     });
 }
 
+/** Expand VS Code-style ${...} variables in a configured path/value, so a
+ *  setting can reference the workspace, the environment, the user's home, or
+ *  ANOTHER configuration value (e.g. "${config:cmake.buildDirectory}"). */
+function expandVar(s: string): string {
+  if (!s) return s;
+  const ctx: VarContext = {
+    workspaceFolders: (vscode.workspace.workspaceFolders ?? []).map(f => ({ name: f.name, fsPath: f.uri.fsPath })),
+    env: process.env,
+    home: os.homedir(),
+    pathSep: path.sep,
+    getConfig: (id) => vscode.workspace.getConfiguration().get(id),
+  };
+  return expandConfigVars(s, ctx);
+}
+
 function resolveSuDirectory(userValue: string): string | undefined {
   if (!userValue) return undefined;
+  userValue = expandVar(userValue);          // ${workspaceFolder} / ${config:…} / ${env:…}
   if (path.isAbsolute(userValue)) return userValue;
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length === 0) return undefined;
@@ -480,16 +498,16 @@ async function runPythonAnalysis(
     setStatus("no workspace", "warning");
     return;
   }
-  const pythonPath = cfg.get<string>("pythonPath", "python3");
-  const libclangPath = cfg.get<string>("libclangPath", "");
-  const clangArgs = cfg.get<string[]>("clangArgs", []);
+  const pythonPath = expandVar(cfg.get<string>("pythonPath", "python3"));
+  const libclangPath = expandVar(cfg.get<string>("libclangPath", ""));
+  const clangArgs = cfg.get<string[]>("clangArgs", []).map(expandVar);
   const compileCommandsDirSetting = cfg.get<string>("compileCommandsDir", "");
   const compileCommandsDir = compileCommandsDirSetting
     ? (resolveSuDirectory(compileCommandsDirSetting) ?? compileCommandsDirSetting)
     : "";
   const resolvedSu = suDir ? resolveSuDirectory(suDir) ?? "" : "";
   // Resolve the fp-overrides JSON: explicit setting, else <root>/fp-overrides.json.
-  const fpOverridesSetting = cfg.get<string>("fpOverridesPath", "");
+  const fpOverridesSetting = expandVar(cfg.get<string>("fpOverridesPath", ""));
   let fpOverridesPath = "";
   if (fpOverridesSetting) {
     fpOverridesPath = path.isAbsolute(fpOverridesSetting)
@@ -500,7 +518,7 @@ async function runPythonAnalysis(
   }
 
   // Resolve the edge-removals JSON: explicit setting, else <root>/edge-removals.json.
-  const edgeRemovalsSetting = cfg.get<string>("edgeRemovalsPath", "");
+  const edgeRemovalsSetting = expandVar(cfg.get<string>("edgeRemovalsPath", ""));
   let edgeRemovalsPath = "";
   if (edgeRemovalsSetting) {
     edgeRemovalsPath = path.isAbsolute(edgeRemovalsSetting)
