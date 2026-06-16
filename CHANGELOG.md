@@ -3,6 +3,12 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.45.1
+
+- Docs: the README now has a **Path variables** section documenting the `${...}`
+  substitution from 1.45.0 (including the `${config:cmake.buildDirectory}`
+  example) — previously only in the setting descriptions and changelog.
+
 ## 1.45.0
 
 - Path settings now support **VS Code-style `${...}` variables**, so a path can
