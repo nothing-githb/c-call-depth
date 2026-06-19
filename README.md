@@ -245,24 +245,27 @@ The side panel is split into two tabs that separate the two ways you use it:
   callers, calls-into, recursion paths, per-root analysis). Looking up or
   clicking any function opens it here, switching to this tab automatically.
 - **Overview** — the always-on, workspace-wide lists: **Top by peak stack**,
-  **Top by depth**, **Recursive functions**, and **Unbound function pointers**.
-  The tab shows a badge with how many functions the analysis covers.
+  **Top by depth**, **Top by frame**, **Recursive functions**, and **Unbound
+  function pointers**. The tab shows a badge with how many functions the analysis
+  covers.
 
 ![Side panel — per-function detail: frame, peak, function-pointer call sites, per-root analysis, callers, and calls-into](images/side-panel.png)
 
-The two **Top by …** lists rank every function by its own downward cost:
-**Top by peak stack** by worst-case cumulative bytes, and **Top by depth** by
-deepest downward call chain (shown as `d:N`; a trailing `+` means a recursion
-cycle or the depth cap was hit). The last-used tab is remembered, and clicking a
-function in any Overview list jumps straight to its detail in the Function tab.
+The **Top by …** lists rank every function by its own cost: **Top by peak stack**
+by worst-case cumulative bytes, **Top by depth** by deepest downward call chain
+(shown as `d:N`; a trailing `+` means a recursion cycle or the depth cap was
+hit), and **Top by frame** by the function's *own* stack frame (its
+`-fstack-usage` size, distinct from the cumulative peak below it). The last-used
+tab is remembered, and clicking a function in any Overview list jumps straight to
+its detail in the Function tab.
 
 ![Side panel — Overview tab: Top by peak stack, Top by depth, Recursive functions, and Unbound function pointers](images/overview.png)
 
 ### Collapsible sections & incremental lists
 
 The side panel's sections — **Top by peak stack**, **Top by depth**,
-**Callers**, **Calls into**, **Recursion paths**, **Recursive functions**, and
-**Unbound function pointers** — have collapsible headers (click the ▶ to
+**Top by frame**, **Callers**, **Calls into**, **Recursion paths**, **Recursive
+functions**, and **Unbound function pointers** — have collapsible headers (click the ▶ to
 fold/unfold), and their open/closed state is remembered across lookups. Long
 lists show a first batch and offer **show N more / show all / show less**, so a
 function with hundreds of callers stays readable.
@@ -272,9 +275,9 @@ toggle in their headers: order the chains by deepest cumulative stack (`stack`,
 the default) or by longest call chain in hops (`hops`). Each section remembers
 its choice across functions.
 
-The **Top by peak stack**, **Top by depth**, **Recursive functions**, and
-**Unbound function pointers** lists, and the **Per-root analysis** table, each
-have a filter box: type part of an absolute file path (e.g. `src/drivers` or a
+The **Top by peak stack**, **Top by depth**, **Top by frame**, **Recursive
+functions**, and **Unbound function pointers** lists, and the **Per-root
+analysis** table, each have a filter box: type part of an absolute file path (e.g. `src/drivers` or a
 full `/path/to/file.c`) — or a function name — to narrow the list to that
 location, with the matched path fragment highlighted. Clearing the box (or
 pressing Escape) restores the full view. The overview lists start collapsed so

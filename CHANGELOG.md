@@ -3,6 +3,14 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.46.0
+
+- Overview gained a **Top by frame** list — functions ranked by their **own
+  stack frame** (the `-fstack-usage` size), in the same format as Top by peak
+  stack (collapsible, filterable, severity-colored, clickable). It complements
+  Top by peak (cumulative worst case below a function): Top by frame surfaces the
+  single fattest frames.
+
 ## 1.45.1
 
 - Docs: the README now has a **Path variables** section documenting the `${...}`

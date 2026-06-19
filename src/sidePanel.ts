@@ -7,6 +7,7 @@
 //     { type: "state",   summary: { total, withStack } }
 //     { type: "names",   names: string[] }                  (autocomplete)
 //     { type: "top",     entries: TopEntry[] }              (top-by-peak list)
+//     { type: "topDepth"/"topFrame"/"recursion"/"unboundFp", entries: [...] } (overview lists)
 //     { type: "result",  payload: SidePanelResult | null }  (search result)
 //   webview -> extension:
 //     { type: "ready" }
@@ -208,6 +209,30 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
             });
         }
         topDepth.sort((a, b) => b.depth - a.depth);
+        // Top-by-frame: rank by each function's OWN stack frame (the -fstack-usage
+        // size), distinct from peak (the cumulative worst case below it). Surfaces
+        // the single fattest frames. Functions without a known frame are omitted.
+        const topFrame = [];
+        for (const [name, rec] of state.byName) {
+            if (rec.ghost)
+                continue;
+            const frame = rec.stackBytes;
+            if (frame === undefined || frame === null)
+                continue;
+            const info = state.depth.get(name);
+            topFrame.push({
+                name,
+                file: rec.file,
+                frame,
+                qualifier: rec.stackQualifier || "",
+                peak: info?.cumulativeStack,
+                recursive: info?.recursive === true,
+                recursiveViaFp: info?.recursiveViaFp === true,
+                pinnedRoot: info?.isPinnedRoot === true,
+                autoRoot: info?.isAutoRoot === true
+            });
+        }
+        topFrame.sort((a, b) => b.frame - a.frame);
         // Dedicated recursion list: every function in a cycle, certain (direct)
         // ones first, then possible (fp-only) ones, each sorted by peak desc.
         const recList = [];
@@ -260,6 +285,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
         });
         this.view.webview.postMessage({ type: "top", entries: top });
         this.view.webview.postMessage({ type: "topDepth", entries: topDepth });
+        this.view.webview.postMessage({ type: "topFrame", entries: topFrame });
         this.view.webview.postMessage({ type: "unboundFp", entries: unboundFp });
         this.view.webview.postMessage({ type: "recursion", entries: recList });
     }
@@ -1021,6 +1047,16 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       </div>
     </div>
 
+    <div id="top-frame-block" style="display:none">
+      <div class="section-label collapsible" data-collapse="top-frame"><span class="twist">▶</span>Top by frame <span id="top-frame-count" class="count"></span></div>
+      <div class="collapse-body" id="top-frame-body">
+        <div id="top-frame-note" class="hint" style="margin:2px 0 6px">Ranked by each function's OWN stack frame (the -fstack-usage size), not the cumulative peak below it.</div>
+        <input id="top-frame-filter" class="top-filter" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Filter by path or name (e.g. src/drivers or /abs/path)" />
+        <div id="top-frame"></div>
+      </div>
+    </div>
+
     <div id="rec-block" style="display:none">
       <div class="section-label collapsible" data-collapse="rec"><span class="twist">▶</span>Recursive functions <span id="rec-count" class="count"></span></div>
       <div class="collapse-body" id="rec-body">
@@ -1109,6 +1145,11 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
   const topDepthCount = document.getElementById('top-depth-count');
   const topDepthFilter = document.getElementById('top-depth-filter');
   var topDepthEntries = [];      // full ranked-by-depth list
+  const topFrameBlock = document.getElementById('top-frame-block');
+  const topFrameDiv = document.getElementById('top-frame');
+  const topFrameCount = document.getElementById('top-frame-count');
+  const topFrameFilter = document.getElementById('top-frame-filter');
+  var topFrameEntries = [];      // full ranked-by-own-frame list
   const recBlock = document.getElementById('rec-block');
   const recDiv = document.getElementById('rec');
   const recCount = document.getElementById('rec-count');
@@ -1265,6 +1306,8 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       renderTop(m.entries);
     } else if (m.type === 'topDepth') {
       renderTopDepth(m.entries);
+    } else if (m.type === 'topFrame') {
+      renderTopFrame(m.entries);
     } else if (m.type === 'unboundFp') {
       renderUnboundFp(m.entries);
     } else if (m.type === 'recursion') {
@@ -1422,6 +1465,12 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     topDepthFilter.addEventListener('input', () => renderTopDepth());
     topDepthFilter.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { topDepthFilter.value = ''; renderTopDepth(); }
+    });
+  }
+  if (topFrameFilter) {
+    topFrameFilter.addEventListener('input', () => renderTopFrame());
+    topFrameFilter.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { topFrameFilter.value = ''; renderTopFrame(); }
     });
   }
   if (recFilter) {
@@ -1820,6 +1869,59 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       });
     }
     wireCollapsibles(topDepthBlock);
+  }
+
+  // Top-by-frame list — mirrors renderTop but ranks by each function's OWN stack
+  // frame (the -fstack-usage size), shown in bytes on the right. The Overview tab
+  // badge is owned by renderTop, so this does not touch it.
+  function renderTopFrame(entries) {
+    if (entries) topFrameEntries = entries;
+    if (!topFrameEntries || topFrameEntries.length === 0) { topFrameBlock.style.display = 'none'; return; }
+    topFrameBlock.style.display = '';
+    const filter = (topFrameFilter && topFrameFilter.value || '').trim().toLowerCase();
+    let list = topFrameEntries;
+    if (filter) {
+      list = topFrameEntries.filter(e =>
+        ((e.file || '').toLowerCase().indexOf(filter) !== -1) ||
+        (e.name.toLowerCase().indexOf(filter) !== -1));
+    }
+    const shown = filter ? list : list.slice(0, TOP_VIEW_LIMIT);
+    topFrameCount.textContent = filter
+      ? (list.length + ' match' + (list.length === 1 ? '' : 'es'))
+      : topFrameEntries.length;
+    if (shown.length === 0) {
+      topFrameDiv.innerHTML = '<div class="empty">No function matches that path or name.</div>';
+      return;
+    }
+    topFrameDiv.innerHTML = shown.map(e => {
+      const sev = sevClass(e.frame);
+      const tags = [];
+      if (e.recursive) tags.push('<span class="top-flag" title="' +
+        (e.recursiveViaFp ? 'possible recursion (via fn-ptr)' : 'certain recursion') +
+        '">' + (e.recursiveViaFp ? '↻?' : '↻') + '</span>');
+      if (e.pinnedRoot) tags.push('<span class="top-flag">📌</span>');
+      else if (e.autoRoot) tags.push('<span class="top-flag">⚓</span>');
+      let pathRow = '';
+      if (filter && e.file) {
+        pathRow = '<div class="top-path" title="' + escape(e.file) + '">' +
+          highlight(e.file, filter) + '</div>';
+      }
+      const qtitle = e.qualifier ? ' (' + escape(e.qualifier) + ')' : '';
+      return '<div class="top-row" data-top="' + escape(e.name) + '">' +
+        '<div style="min-width:0;flex:1">' +
+          '<div class="top-name">' + escape(e.name) + ' ' + tags.join('') + '</div>' +
+          pathRow +
+        '</div>' +
+        '<div class="stat-value ' + sev + '" title="own stack frame' + qtitle + '">' + fmtBytes(e.frame) + '</div>' +
+        '</div>';
+    }).join('');
+    for (const el of topFrameDiv.querySelectorAll('[data-top]')) {
+      el.addEventListener('click', () => {
+        q.value = el.getAttribute('data-top');
+        vscode.postMessage({ type: 'query', name: q.value });
+      });
+    }
+    wireCollapsibles(topFrameBlock);
   }
 
   // Highlight (case-insensitive) the matched substring inside an escaped path.
@@ -2307,7 +2409,7 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
       const saved = (vscode.getState() || {}).collapsed;
       if (saved && Object.keys(saved).length) return saved;
     } catch (_) {}
-    return { top: true, "top-depth": true, rec: true, unbound: true };
+    return { top: true, "top-depth": true, "top-frame": true, rec: true, unbound: true };
   })();
   // Wire any .section-label.collapsible inside root. The body is the element
   // marked data-collapse-body / id="<key>-body", else the next sibling.

@@ -161,6 +161,28 @@ if (calleeHead) {
   check("Top-by-depth expands on click", tdBody && !tdBody.classList.contains("hidden"));
 }
 
+// ── Top by frame (own stack frame, same format as Top by peak) ──
+{
+  w.dispatchEvent(new w.MessageEvent("message", { data: { type: "topFrame", entries: [
+    { name: "bigBuf",  file: "/s/b.c", frame: 8192, qualifier: "static", peak: 9000 },
+    { name: "midBuf",  file: "/s/m.c", frame: 256,  qualifier: "static", peak: 400 },
+    { name: "tiny",    file: "/s/t.c", frame: 16,   qualifier: "static", peak: 16 }
+  ] } }));
+  const tfHead = w.document.querySelector('.section-label.collapsible[data-collapse="top-frame"]');
+  const tfBody = w.document.getElementById("top-frame-body");
+  const tfRows = w.document.querySelectorAll("#top-frame .top-row");
+  check("Top-by-frame section is collapsible", !!tfHead && !!tfBody);
+  check("Top-by-frame body collapsed by default", tfBody && tfBody.classList.contains("hidden"));
+  check("Top-by-frame renders all rows (3)", tfRows.length === 3, `rows=${tfRows.length}`);
+  check("Top-by-frame count badge reflects total", w.document.getElementById("top-frame-count").textContent === "3");
+  check("Top-by-frame shows the OWN frame in bytes, fattest first",
+        tfRows[0] && /8(\.0+)?\s*KB|8192/.test(tfRows[0].querySelector(".stat-value").textContent),
+        tfRows[0] ? tfRows[0].querySelector(".stat-value").textContent : "no rows");
+  check("Top-by-frame label reads 'Top by frame'", tfHead && /Top by frame/.test(tfHead.textContent));
+  if (tfHead) tfHead.dispatchEvent(new w.Event("click"));
+  check("Top-by-frame expands on click", tfBody && !tfBody.classList.contains("hidden"));
+}
+
 // Callers / Calls into sort toggle: stack (heaviest first) vs hops (longest chain first).
 {
   w.dispatchEvent(new w.MessageEvent("message", { data: { type: "result", payload: {
@@ -217,6 +239,7 @@ if (calleeHead) {
   const send = (m) => w.dispatchEvent(new w.MessageEvent("message", { data: m }));
   const topDiv2 = doc.getElementById("top");
   const tdDiv2 = doc.getElementById("top-depth");
+  const tfDiv2 = doc.getElementById("top-frame");
   const recDiv2 = doc.getElementById("rec");
   const ubDiv2 = doc.getElementById("unbound");
   const recBlk2 = doc.getElementById("rec-block");
@@ -228,8 +251,10 @@ if (calleeHead) {
   send({ type: "topDepth", entries: [{ name: "r1_depth_a", file: "/a.c", depth: 50, bounded: false }] });
   send({ type: "recursion", entries: [{ name: "r1_rec_a", file: "/a.c", viaFp: false, peak: 200, hops: 1 }] });
   send({ type: "unboundFp", entries: [{ name: "r1_ub_a", file: "/a.c", sites: 1, peak: 300 }] });
+  send({ type: "topFrame", entries: [{ name: "r1_frame_a", file: "/a.c", frame: 2048, qualifier: "static" }] });
   check("round1: Top by peak shows initial entry", topDiv2.textContent.includes("r1_top_a"));
   check("round1: Top by depth shows initial entry", tdDiv2.textContent.includes("r1_depth_a"));
+  check("round1: Top by frame shows initial entry", tfDiv2.textContent.includes("r1_frame_a"));
   check("round1: Recursive shows initial entry", recDiv2.textContent.includes("r1_rec_a"));
   check("round1: Unbound fp shows initial entry", ubDiv2.textContent.includes("r1_ub_a"));
 
@@ -237,6 +262,7 @@ if (calleeHead) {
   send({ type: "top", entries: [mkTop("r2_top_x", 8000), mkTop("r2_top_y", 9000), mkTop("r2_top_z", 100)] });
   send({ type: "topDepth", entries: [{ name: "r2_depth_x", file: "/x.c", depth: 99, bounded: false }, { name: "r2_depth_y", file: "/y.c", depth: 12, bounded: false }] });
   send({ type: "unboundFp", entries: [{ name: "r2_ub_x", file: "/x.c", sites: 2, peak: 600 }] });
+  send({ type: "topFrame", entries: [{ name: "r2_frame_x", file: "/x.c", frame: 4096, qualifier: "static" }, { name: "r2_frame_y", file: "/y.c", frame: 64, qualifier: "static" }] });
   send({ type: "recursion", entries: [] });
 
   check("refresh: Top by peak swaps in new entries, drops old",
@@ -251,6 +277,10 @@ if (calleeHead) {
         doc.getElementById("top-depth-count").textContent === "2");
   check("refresh: Top by depth re-sorts (deepest first)",
         /r2_depth_x[\s\S]*r2_depth_y/.test(tdDiv2.textContent));
+  check("refresh: Top by frame swaps in new entries, drops old",
+        tfDiv2.textContent.includes("r2_frame_x") && !tfDiv2.textContent.includes("r1_frame_a"));
+  check("refresh: Top by frame count badge updates to 2",
+        doc.getElementById("top-frame-count").textContent === "2");
   check("refresh: Unbound fp swaps in new entries, drops old",
         ubDiv2.textContent.includes("r2_ub_x") && !ubDiv2.textContent.includes("r1_ub_a") && ubBlk2.style.display !== "none");
   check("refresh: Recursive list clears + hides when the new analysis has none",
