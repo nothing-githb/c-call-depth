@@ -44,36 +44,23 @@ function sameSet(a, b) {
   return sa.every((x, i) => x === sb[i]);
 }
 
-// Expected targets per call site (matches the shared template, PLUS the
-// assignment-derived handler_large for fp_global_dispatch which was missing).
-const EXPECT = {
-  dispatch_isr: ["isr_timer", "isr_watchdog", "isr_uart", "isr_spi", "isr_i2c", "isr_dma", "isr_eth", "isr_usb"],
-  fp_array_dispatch: ["handler_small", "handler_medium", "handler_large"],
-  fp_global_dispatch: ["handler_small", "handler_large"], // <-- assignment-derived handler_large MUST be present
-  fp_param_apply: ["handler_large"], // inter-procedural: caller passes handler_large at param 0
-  fp_returned_dispatch: ["pick"],
-  fp_struct_dispatch: ["handler_medium", "handler_small"],
-};
-
-for (const [caller, want] of Object.entries(EXPECT)) {
-  const got = targetsOf(caller);
-  check(`${caller} targets = [${want.join(", ")}]`, sameSet(got, want),
-        `got [${got ? got.join(", ") : "(missing entry)"}]`);
+// Over-approximation is removed: the template no longer SUGGESTS targets. It
+// lists the fp call SITES (so you know where to bind) with EMPTY `targets` for
+// you to fill in fp-overrides.json. Verify each known dispatcher is listed and
+// carries no pre-filled targets.
+const SITES = ["dispatch_isr", "fp_array_dispatch", "fp_global_dispatch",
+               "fp_param_apply", "fp_returned_dispatch", "fp_struct_dispatch"];
+for (const caller of SITES) {
+  check(`${caller} is listed as an fp call site to bind`, !!byCaller[caller], "(missing entry)");
 }
-
-// Structural checks the shared template implies.
+check("listed sites have NO pre-filled targets (no over-approximation / suggestion)",
+      entries.length > 0 && entries.every(e => Array.isArray(e.targets) && e.targets.length === 0),
+      entries.map(e => `${e.caller}:[${e.targets}]`).join(" "));
 check("every entry has caller + file (no line numbers)",
-      entries.every(e => e.caller && "file" in e));
-check("no entry carries a `line` field (line removed from template)",
-      entries.every(e => !("line" in e)));
-check("entries with candidates carry `via` (except unresolved)",
-      entries.every(e => e.targets.length === 0 || typeof e.via === "string"));
+      entries.every(e => e.caller && "file" in e && !("line" in e)));
+check("each entry carries a `via` field to identify the call site",
+      entries.every(e => "via" in e));
 check("JSON has _comment + overrides[]", /"_comment"/.test(json) && /"overrides"/.test(json));
-
-// Specifically pin the regression the user hit: handler_large present for global.
-const gl = targetsOf("fp_global_dispatch") || [];
-check("REGRESSION: fp_global_dispatch includes handler_large (assignment-derived)",
-      gl.includes("handler_large"), `got [${gl.join(", ")}]`);
 
 console.log(failed === 0
   ? "\nGENERATE-TEMPLATE: PASS — all targets match expected."

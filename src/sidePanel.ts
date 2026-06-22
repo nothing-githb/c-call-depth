@@ -256,10 +256,10 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
             });
         }
         recList.sort((a, b) => (a.viaFp === b.viaFp) ? (b.peak - a.peak) : (a.viaFp ? 1 : -1));
-        // Functions containing UNBOUND (still over-approximated) function-pointer
-        // call sites — i.e. at least one fp site that no override covers. These are
-        // the places where the stack analysis rests on inferred fp targets and may
-        // be worth verifying manually (relevant for DO-178C evidence).
+        // Functions with UNBOUND function-pointer call sites — at least one fp
+        // site that no fp-override binds. Their targets are NOT counted (no
+        // over-approximation); listing them shows where indirect calls happen so
+        // they can be bound in fp-overrides.json (relevant for DO-178C evidence).
         const unboundFp = [];
         for (const [name, rec] of state.byName) {
             if (rec.ghost)
@@ -1060,16 +1060,16 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     <div id="rec-block" style="display:none">
       <div class="section-label collapsible" data-collapse="rec"><span class="twist">▶</span>Recursive functions <span id="rec-count" class="count"></span></div>
       <div class="collapse-body" id="rec-body">
-        <div id="rec-note" class="hint" style="margin:2px 0 6px">↻ certain (direct call) · ↻? possible (only via a function-pointer table — over-approximated)</div>
+        <div id="rec-note" class="hint" style="margin:2px 0 6px">↻ certain (direct call) · ↻? possible (recursion only through a function-pointer edge)</div>
         <input id="rec-filter" class="top-filter" type="text" autocomplete="off" spellcheck="false" placeholder="Filter by path or name" />
         <div id="rec"></div>
       </div>
     </div>
 
     <div id="unbound-block" style="display:none">
-      <div class="section-label collapsible" data-collapse="unbound"><span class="twist">▶</span>⚠ Unbound function pointers <span id="unbound-count" class="count"></span></div>
+      <div class="section-label collapsible" data-collapse="unbound"><span class="twist">▶</span>Function-pointer call sites <span id="unbound-count" class="count"></span></div>
       <div class="collapse-body" id="unbound-body">
-        <div id="unbound-note" class="hint" style="margin:2px 0 6px">Functions with fp call sites that no override covers — their stack rests on auto-inferred (over-approximated) targets. Use "Generate fp-overrides template" to verify.</div>
+        <div id="unbound-note" class="hint" style="margin:2px 0 6px">Functions with function-pointer call sites that no fp-override binds. Their targets are NOT counted in the stack/depth (no over-approximation) — bind them in fp-overrides.json to include them.</div>
         <input id="unbound-filter" class="top-filter" type="text" autocomplete="off" spellcheck="false" placeholder="Filter by path or name" />
         <div id="unbound"></div>
       </div>
@@ -1999,18 +1999,17 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
     // manually bound (verified, exact) or is still over-approximated.
     if (Array.isArray(r.fpSites) && r.fpSites.length > 0) {
       html += '<div class="fp-sites">';
-      html += '<div class="section-title">Function-pointer calls</div>';
+      html += '<div class="section-title">Function-pointer call sites</div>';
       for (const s of r.fpSites) {
-        const bound = s.overridden === true;
-        const hasCand = s.candidates && s.candidates.length;
+        // Bound = its targets were supplied via fp-overrides (the ONLY thing that
+        // counts toward stack/depth). Otherwise the site is just shown as a
+        // location — no auto over-approximation, its targets are not counted.
+        const bound = s.overridden === true && s.candidates && s.candidates.length;
         const cls = bound ? 'bound' : 'approx';
-        const mark = bound ? '✓' : '⚠';
-        // Explicit state word so it's unmistakable whether binding was done.
+        const mark = bound ? '✓' : '○';
         const label = bound
           ? '<span class="fp-state">bound</span>'
-          : (hasCand
-              ? '<span class="fp-state">estimated · not bound</span>'
-              : '<span class="fp-state">unresolved · not bound</span>');
+          : '<span class="fp-state">not bound</span>';
         const via = s.via ? '<span class="fp-via">' + escape(s.via) + '</span>' : '<span class="fp-via">(fp)</span>';
         // The line number jumps to the fp call site in source (this function's
         // file + the call-site line). Lets you reach the indirect call fast.
@@ -2018,18 +2017,16 @@ export class SidePanelProvider implements vscode.WebviewViewProvider {
           ? ' <span class="fp-loc fp-loc-link" data-goto-file="' + escape(r.file) +
             '" data-goto-line="' + s.line + '" title="Jump to this call site">line ' + s.line + '</span>'
           : '';
-        // Each inferred target is a clickable function link (open in panel,
-        // hover info, right-click menu) so you can follow the fp edge fast.
-        const tgts = hasCand
+        // Bound targets are clickable function links; unbound sites show nothing
+        // (no guessed/over-approximated targets).
+        const tgts = bound
           ? ' → <span class="fp-tgts">' +
             s.candidates.map(t => '<span class="fn-clickable" data-fn="' + escape(t) + '">' + escape(t) + '</span>').join(', ') +
             '</span>'
-          : ' <span class="fp-tgts">(no targets inferred)</span>';
+          : ' <span class="fp-tgts">(targets not counted)</span>';
         const title = bound
-          ? 'Manually bound via fp-overrides — targets are exact.'
-          : (hasCand
-              ? 'Estimated, NOT bound — targets inferred automatically (worst-case over-approximation). Add an fp-override to verify.'
-              : 'Unresolved, NOT bound — no targets inferred; contributes nothing to the stack estimate (possible under-approximation). Add an fp-override.');
+          ? 'Bound via fp-overrides — its targets are counted in the stack/depth.'
+          : 'Function-pointer call site — not bound, so its targets are not counted. Bind it in fp-overrides.json to include them.';
         html += '<div class="fp-site ' + cls + '" title="' + title + '">' +
                 '<span class="fp-mark">' + mark + '</span>' + via + ' ' + label + loc + tgts + '</div>';
       }

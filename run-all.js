@@ -112,8 +112,6 @@ const SUITES = [
   { file: "recursion-path-test.js",     kind: "js" },
   { file: "config-vars-test.js",        kind: "js" },
   { file: "depth-consistency-test.js",  kind: "js" },
-  { file: "fp-advanced-test.js",        kind: "js-analysis", arg: ALLF },
-  { file: "fp-struct-runtime-test.js",  kind: "js-analysis", arg: ALLF },
   { file: "generate-template-test.js",  kind: "js-analysis", arg: ALLF },
   { file: "cross-view-consistency-test.js", kind: "js-analysis", arg: ALLF },
   { file: "big-workspace-test.js",      kind: "js" },

@@ -80,8 +80,11 @@ const base = analyze(baseDir);
 const bn = base.byName;
 note("base: analyzer recovered all functions", Object.keys(bn).length === N, `got ${Object.keys(bn).length}`);
 note("base: recursion present (self/mutual/cycles)", Object.values(bn).filter(f => f.recursive).length >= 90);
-note("base: function pointers resolved (indirect edges)", Object.values(bn).filter(f => (f.indirect || []).length).length >= 20);
-note("base: unbound fp sites present", Object.values(bn).filter(f => (f.fpSites || []).some(s => !s.overridden && (s.candidates || []).length === 0)).length >= 20);
+note("base: NO auto over-approximation — unbound fp adds no indirect edges",
+  Object.values(bn).every(f => (f.indirect || []).length === 0));
+note("base: function-pointer call sites are still shown",
+  Object.values(bn).filter(f => (f.fpSites || []).length).length >= 20,
+  `withSites=${Object.values(bn).filter(f => (f.fpSites || []).length).length}`);
 consistency("base", base);
 
 // ─────────────────────── (A) CODE CHANGE ────────────────────────
@@ -123,21 +126,25 @@ consistency("after edge-removals.json", rm);
 fs.rmSync(path.join(baseDir, "edge-removals.json"));
 
 // ─────────────────── (B2) JSON: fp-overrides ────────────────────
-const tblVia = (bn.g00360.fpSites[0] || {}).via;          // resolved table dispatcher
-const tblTarget = bn.g00360.indirect[0];
+// With over-approximation gone, fp-overrides.json is the ONLY thing that binds
+// fp targets into the graph. Bind a table dispatcher and an unbound param site.
+const tblVia = (bn.g00360.fpSites[0] || {}).via;          // table dispatcher's fp via
+const tblTarget = (sum.fpTables["g00360"] || [])[0];      // a real table target (ground truth)
 const unbVia = (bn.g00361.fpSites[0] || {}).via;          // unbound param dispatcher
 writeJson(baseDir, "fp-overrides.json", {
   overrides: [
-    { caller: "g00360", via: tblVia, targets: [tblTarget] },   // narrow + verify
-    { caller: "g00361", via: unbVia, targets: ["g00500"] },    // bind the unbound site
+    { caller: "g00360", via: tblVia, targets: [tblTarget] },   // bind
+    { caller: "g00361", via: unbVia, targets: ["g00500"] },    // bind the unbound param site
   ],
 });
 const fp = analyze(baseDir, ["--fp-overrides", path.join(baseDir, "fp-overrides.json")]);
-note("json (fp-overrides): table dispatcher narrowed to the bound target",
-  fp.byName.g00360.indirect.length < bn.g00360.indirect.length && fp.byName.g00360.indirect.includes(tblTarget),
-  `before=${bn.g00360.indirect.length} after=${JSON.stringify(fp.byName.g00360.indirect)}`);
-note("json (fp-overrides): narrowed dispatcher is now marked verified/bound", fp.byName.g00360.fpVerified === true);
-note("json (fp-overrides): the unbound dispatcher is now bound to its target",
+note("json (fp-overrides): the dispatcher had NO indirect edge before binding (no over-approx)",
+  (bn.g00360.indirect || []).length === 0);
+note("json (fp-overrides): binding adds exactly the bound target as an indirect edge",
+  fp.byName.g00360.indirect.includes(tblTarget) && fp.byName.g00360.indirect.length === 1,
+  `target=${tblTarget} after=${JSON.stringify(fp.byName.g00360.indirect)}`);
+note("json (fp-overrides): bound dispatcher is marked verified", fp.byName.g00360.fpVerified === true);
+note("json (fp-overrides): the unbound param site is now bound to its target",
   fp.byName.g00361.indirect.includes("g00500") && fp.byName.g00361.fpVerified === true,
   `indirect=${JSON.stringify(fp.byName.g00361.indirect)} verified=${fp.byName.g00361.fpVerified}`);
 consistency("after fp-overrides.json", fp);

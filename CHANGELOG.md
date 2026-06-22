@@ -3,6 +3,22 @@
 All notable changes to the **C Stack Analysis & Call Graph** extension are
 documented here. This project adheres to [Semantic Versioning](https://semver.org/).
 
+## 1.47.0
+
+- **Removed the automatic function-pointer over-approximation.** The analyzer no
+  longer guesses an indirect call's targets or folds them into the peak/depth, and
+  it no longer suggests targets. Function-pointer targets are counted **only when
+  bound via `fp-overrides.json`**. Unbound fp call sites contribute nothing — so
+  the numbers reflect direct calls plus the bindings you choose, with no inflated
+  worst-case estimates and no binding pressure.
+- Function-pointer call **sites are still shown** (Function tab, hover, and the
+  Overview list — renamed **Function-pointer call sites**) so you can see where
+  the indirect calls are and bind the ones that matter. The **Generate
+  fp-overrides template** command now lists the sites with empty `targets` to fill
+  in (it does not suggest targets).
+- The over-approximation-specific UI language ("estimated / worst-case / possible
+  targets") and the dashed "fp (over-approx)" graph legend entry were removed.
+
 ## 1.46.0
 
 - Overview gained a **Top by frame** list — functions ranked by their **own

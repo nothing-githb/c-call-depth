@@ -350,7 +350,6 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
       <span><span class="legend-dot" style="background:#ef5350"></span>critical</span>
       <span><span class="legend-dot" style="background:#888"></span>no stack</span>
       <span><span class="legend-line" style="background:var(--vscode-charts-green,#2ea043)"></span>fp bound ✓</span>
-      <span><span class="legend-line" style="background:var(--vscode-descriptionForeground);border-top:2px dashed"></span>fp (over-approx)</span>
       <span>📌/⚓ root</span>
       <span><span class="legend-line" style="background:var(--vscode-descriptionForeground);opacity:0.4"></span>cross edge</span>
     </div>
@@ -1005,7 +1004,7 @@ export const GRAPH_HTML = String.raw `<!DOCTYPE html>
       else if (n.isRoot && n.rootKind === 'auto') roleBits.push('⚓ auto root');
       if (n.recursive) roleBits.push('recursive ↻');
       if (n.fpVerified) roleBits.push('fp bound ✓');
-      else if (n.hasUnboundFp) roleBits.push('fp estimated (not bound) ⚠');
+      else if (n.hasUnboundFp) roleBits.push('fp call site (not bound)');
       if (roleBits.length) tparts.push(roleBits.join(' · '));
       gt.textContent = tparts.join('\n');
       g.appendChild(gt);

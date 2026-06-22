@@ -711,40 +711,13 @@ class ClangGraphBuilder:
             cbase = os.path.basename(crec["file"])
             line = site.get("line", 0)
             via = site.get("via", "")
-            targets = site.get("targets", [])
-            # Template candidates = edge targets (initializer-resolved) PLUS any
-            # assignment-derived suggestions. The extras enrich the generated
-            # fp-overrides template only — they are NOT added to edges/peak.
-            candidates = list(targets)
-            for t in site.get("extraCandidates", []):
-                if t not in candidates:
-                    candidates.append(t)
-            # Inter-procedural SUGGESTION: if this fp call invokes a PARAMETER
-            # (e.g. `cb(x)` where cb is a parameter), resolve likely targets from
-            # what callers pass at that argument position. Template-only — these
-            # do NOT become edges or affect peak (analysis mentality unchanged).
             vp = site.get("viaParam", -1)
-            cn_self = site.get("callerName", cname)
-            if vp is not None and vp >= 0:
-                # Trace the callback back through any parameter-forwarding levels
-                # to the concrete function(s) supplied at the head of the chain.
-                # BFS over param_fwd edges; collect arg_funcs at every node.
-                seen_pf = set()
-                queue = [(cn_self, vp)]
-                while queue:
-                    node_key = queue.pop(0)
-                    if node_key in seen_pf:
-                        continue
-                    seen_pf.add(node_key)
-                    # Concrete functions passed directly at this (fn, arg) slot.
-                    for t in arg_funcs.get(node_key, []):
-                        if t not in candidates:
-                            candidates.append(t)
-                    # Callers that forward their own parameter into this slot.
-                    for caller_fn, caller_pi in param_fwd.get(node_key, []):
-                        nxt = (caller_fn, caller_pi)
-                        if nxt not in seen_pf:
-                            queue.append(nxt)
+            # Over-approximation removed: auto-resolved fp candidates NO LONGER
+            # become edges or affect peak/depth, and are not suggested. ONLY an
+            # fp-override binds targets. The call SITE is still recorded so the UI
+            # can show where the function-pointer call is (so users can bind it).
+            targets = []
+            candidates = []
             overridden = False
             match = _match_override(cname, cbase, line, via)
             if match is not None:
@@ -752,7 +725,8 @@ class ClangGraphBuilder:
                 ov_used.add(idx)
                 overridden = True
                 if ov_targets:
-                    targets = ov_targets          # unconditional replace
+                    targets = list(ov_targets)    # bound by the override
+                    candidates = list(ov_targets)
                     verified_callers.add(cusr)
                 for ce in cond_list:
                     ctgts = list(ce.get("targets", []))
@@ -764,6 +738,8 @@ class ClangGraphBuilder:
                     for t in ctgts:
                         if t not in targets:
                             targets = list(targets) + [t]
+                        if t not in candidates:
+                            candidates.append(t)
             fp_sites.setdefault(cusr, []).append({
                 "line": line, "via": via, "candidates": candidates,
                 "overridden": overridden, "viaParam": vp if vp is not None else -1})

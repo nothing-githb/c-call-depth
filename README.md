@@ -24,10 +24,10 @@ static int compute(int x)  ‹ via task_main · f:48B · p:1.1KB › +2
   panel (depth is not shown inline).
 
 Markers in the pill: `📌` pinned root · `⚓` auto root (no callers) · `↻`
-recursion · `≀✓` all function-pointer call sites manually bound (exact) ·
-`≀~` has a function-pointer call that is **not** bound (worst-case estimate) ·
-`≀` indirect call(s) present. (The certain-vs-possible recursion distinction —
-`↻` vs `↻?` — is shown in the hover and side panel; see below.)
+recursion · `≀✓` all function-pointer call sites bound via fp-overrides ·
+`≀` has a function-pointer call site that is **not** bound (its targets are not
+counted). (The certain-vs-possible recursion distinction — `↻` vs `↻?` — is
+shown in the hover and side panel; see below.)
 
 ### Certain vs. possible recursion
 
@@ -35,13 +35,10 @@ The side panel has a **Recursive functions** section that separates two cases:
 
 - **Certain (`↻`)** — a *direct* call edge participates in the cycle. This is
   real recursion.
-- **Possible (`↻?`)** — the cycle exists only through function-pointer edges,
-  which the analyzer over-approximates (an indirect call is assumed to reach
-  *any* function the referenced table was initialized with). Such a cycle is a
-  safe worst-case for stack bounding but may not be real recursion — e.g. if a
-  function only ever calls `table[1]` but the table also contains the function
-  itself, an over-approximated self-edge appears. Treat `↻?` as "review this",
-  not "this definitely recurses".
+- **Possible (`↻?`)** — the cycle exists only through a function-pointer edge
+  that you **bound via fp-overrides** (the analyzer never invents fp edges on its
+  own). Such a cycle depends on the targets you declared, so treat `↻?` as
+  "review this binding", not necessarily "this definitely recurses".
 
 ## Requirements
 
@@ -62,87 +59,54 @@ with **libclang** and extracts the call graph **directly from the AST**:
   libclang's USR so the same extern function merges across files while
   same-named statics stay distinct.
 - Each call expression in a function body resolves to its callee.
-- **Function-pointer tables** are resolved automatically: the initializer of a
-  table like `static fn_t vt[] = { a, b, c };` is read, and an indirect call
-  through it is treated as potentially reaching any of those targets
-  (worst-case over-approximation — the right default for stack analysis).
+- **Function-pointer call sites** are detected (an indirect call through a
+  variable, table, or struct field), but their targets are **not guessed or
+  counted** — there is no over-approximation. An fp call contributes to the
+  stack/depth **only** when you bind its targets in `fp-overrides.json` (below).
+  The call sites themselves are always shown so you know where they are.
 
 There is no clangd, no language server, and no GCC `.expand` dependency. Stack
 frames come from `.su` files (`-fstack-usage`) and are matched to functions by
 name, file-qualified so same-named statics get their own frame.
 
-### Manual function-pointer verification (overrides)
+### Function pointers (fp-overrides)
 
-The automatic over-approximation is safe but can be too broad — an indirect call
-through a table is assumed to reach *every* entry, even when you know only some
-are reachable in this build. You can pin the exact targets of a specific call
-site with a JSON file (default `<workspace>/fp-overrides.json`, or set
-`cCallDepth.fpOverridesPath`):
+There is **no automatic over-approximation**: the analyzer never guesses an
+indirect call's targets, so by default an fp call site adds **nothing** to the
+peak/depth. The call **sites** are still shown — in the Function tab, in hover,
+and in the Overview **Function-pointer call sites** list — so you can see where
+the indirect calls are. You then bind the ones that matter with a JSON file
+(default `<workspace>/fp-overrides.json`, or set `cCallDepth.fpOverridesPath`):
 
 ```jsonc
 {
   "overrides": [
     {
-      "caller": "dispatch_isr",     // function containing the indirect call (required)
-      "via": "vector_table",         // fp variable/table invoked — stable matcher
-      "file": "drivers/src/drivers.c", // optional; matched by basename
-      "targets": ["isr_timer", "isr_uart"], // the verified target list
+      "caller": "dispatch_isr",          // function containing the indirect call (required)
+      "via": "vector_table",              // fp variable/table/field invoked — stable matcher
+      "file": "drivers/src/drivers.c",    // optional; matched by basename
+      "targets": ["isr_timer", "isr_uart"], // the targets to count
       "note": "only timer+uart wired in this configuration"
     }
   ]
 }
 ```
 
-A call site is identified by `caller` (required) plus `via` (the name of the
-function-pointer variable/table being invoked). This pair is **stable across
-source edits** — inserting code above the call site won't break the override,
-because no line numbers are involved. The generated template uses exactly this
-key (no `line` field). If a caller has only one fp call site, `caller` alone is
-enough. Every discriminator you specify must match; the most specific matching
-override wins. `file` (basename) is also matched when given. (A `line` field is
-still accepted if you add one by hand, but it isn't generated or needed.)
+A call site is identified by `caller` (required) plus `via` (the
+function-pointer variable/table/field name) — a key that is **stable across
+source edits** (no line numbers). If a caller has only one fp site, `caller`
+alone is enough; `file` (basename) further disambiguates, and the most specific
+matching override wins. The listed `targets` become the call site's edges and the
+site is marked **bound** — its fp edges then count in peak, depth, paths, and the
+call graph, and a cycle through them is reported as certain (`↻`) rather than
+possible (`↻?`). Editing this file re-runs analysis without re-parsing unchanged
+sources. (An override with no targets binds nothing and is ignored.)
 
-The listed `targets` **replace** the auto-resolved candidates for that call site
-(so you can both narrow the list and add targets the analyzer missed), and the
-site is marked **verified** — its fp edges are then treated as exact, so a cycle
-that runs through them is reported as certain (`↻`) rather than possible (`↻?`).
-Editing this file re-runs analysis without re-parsing unchanged sources.
-
-An override with **no `targets` and no `conditional` targets binds nothing**, so
-it is ignored (with a warning in the output log) and the call site is left
-**auto-estimated (not bound)** — it keeps the worst-case over-approximation and
-still shows up under "Unbound function pointers". To actually bind a site you
-must list at least one target (unconditional or conditional).
-
-### Parameter callbacks
-
-When a function pointer arrives as a **parameter** (e.g. `apply(cb, x)` calling
-`cb(x)`), it can't be resolved from within the function. The
-**Generate fp-overrides template** command analyzes the call hierarchy: it looks
-at every caller of the enclosing function and collects the functions they pass
-at that argument position, then pre-fills `targets` with those as a SUGGESTION
-(the entry's `_hint` says so). This is template-only — it does not change edges
-or peak — so you review the suggestion and bind it explicitly if correct.
-
-The suggester handles several harder shapes:
-- **Multi-level callbacks** — a callback forwarded through several parameter
-  layers (`top(cb)` → `mid(cb)` → `bottom(cb)` → `cb()`) is traced back through
-  the forwarding chain to the concrete function supplied at the head.
-- **Multiple fp parameters** — each parameter position is resolved
-  independently, so `apply2(a, b, x)` suggests the right target for `a` and `b`
-  separately.
-- **Struct-field assignment** — `dev.on_event = handler; … dev.on_event(x)`
-  surfaces `handler` as a candidate, keyed by the field name. Runtime
-  assignments are handled too: a field set conditionally or reassigned within a
-  function yields exactly those branch targets; a field assigned in one function
-  and invoked in another (e.g. a global struct configured by a `setup()`) falls
-  back to the safe union of all assignments to that field (never missing one).
-- **Array-of-struct fp fields** — `tbl[i].fn(x)` surfaces the table's targets.
-
-In the side panel's **Function-pointer calls** section, each site's **line N** is
-clickable (jumps straight to the indirect call in source), and each inferred
-target is a clickable function link (opens it in the panel, with hover info and a
-right-click menu) — so you can follow an fp edge without hunting for it.
+The **Generate fp-overrides template** command scaffolds the file: it lists every
+fp call site (`caller` + `via`) with an empty `targets` array for you to fill in.
+It does **not** suggest targets. In the side panel's **Function-pointer call
+sites** section each site's **line N** is clickable (jumps to the indirect call
+in source), and bound targets are clickable function links.
 
 #### Conditional targets
 
@@ -180,7 +144,7 @@ its condition holds — so `dispatch` reached from `task_a` includes only
 ### Removing impossible edges
 
 Sometimes the analyzer records a call that can't actually happen in your build —
-an over-approximated function-pointer target, a call guarded out by a macro, or
+a direct call guarded out by a macro in this configuration, or
 a hand-written assumption you want to encode. You can prune specific
 **caller → callee** edges with a JSON file (default `<workspace>/edge-removals.json`,
 or set `cCallDepth.edgeRemovalsPath`):

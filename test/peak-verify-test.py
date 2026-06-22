@@ -79,11 +79,14 @@ def main():
             if got != expected:
                 failures.append((n, expected, got, "acyclic mismatch"))
 
-    # Spot-check the hand-computed peakverify values explicitly.
+    # Spot-check the hand-computed peakverify values explicitly. Function-pointer
+    # targets are NO LONGER over-approximated into the peak (only fp-overrides
+    # bind targets), so each value is 32B lower than before — the dropped 32B fp
+    # leaf that auto-over-approximation used to fold into every chain here.
     expect_exact = {
-        "pv_lin5": 1584, "pv_lin0": 5664, "pv_lin1": 5360,
-        "pv_heavy_mid": 7760, "pv_branch": 8336,
-        "pv_bottom": 1072, "pv_left": 1376, "pv_right": 1888, "pv_top": 2208,
+        "pv_lin5": 1552, "pv_lin0": 5632, "pv_lin1": 5328,
+        "pv_heavy_mid": 7728, "pv_branch": 8304,
+        "pv_bottom": 1040, "pv_left": 1344, "pv_right": 1856, "pv_top": 2176,
     }
     spot_fail = []
     for n, exp in expect_exact.items():

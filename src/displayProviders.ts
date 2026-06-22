@@ -365,41 +365,32 @@ export function buildHoverMarkdown(
     }
   }
 
-  // ── Function-pointer calls ──────────────────────────────────────────
-  // Distinguish MANUALLY BOUND sites (from fp-overrides.json — exact) from
-  // ESTIMATED sites (no override — auto over-approximated, NOT bound). When a
-  // site has no resolvable candidates AND no override, it is unresolved and
-  // contributes nothing to the stack estimate (possible UNDER-approximation).
+  // ── Function-pointer call sites ─────────────────────────────────────
+  // fp targets are counted ONLY when bound via fp-overrides.json. There is no
+  // auto over-approximation: unbound sites are shown as locations (so you can
+  // bind them) but contribute nothing to the stack/depth.
   const fpSites = (info.fpSites && info.fpSites.length > 0) ? info.fpSites : undefined;
   if (fpSites) {
-    md.appendMarkdown(`**≀ Function-pointer calls**\n\n`);
+    md.appendMarkdown(`**≀ Function-pointer call sites**\n\n`);
     for (const s of fpSites) {
       const viaTxt = s.via ? `\`${s.via}\`` : "(fp)";
       const loc = s.line ? ` _(line ${s.line})_` : "";
-      if (s.overridden) {
-        const tgts = s.candidates.length
-          ? s.candidates.map(t => fnLink(t, state)).join(", ")
-          : "_(none)_";
-        md.appendMarkdown(`- ✓ ${viaTxt}${loc} — **bound** (verified via fp-overrides): ${tgts}\n`);
-      } else if (s.candidates.length > 0) {
+      if (s.overridden && s.candidates.length) {
         const tgts = s.candidates.map(t => fnLink(t, state)).join(", ");
-        md.appendMarkdown(`- ~ ${viaTxt}${loc} — **estimated, not bound** (worst-case over-approximation): ${tgts}\n`);
+        md.appendMarkdown(`- ✓ ${viaTxt}${loc} — **bound** via fp-overrides: ${tgts}\n`);
       } else {
-        md.appendMarkdown(`- ⚠ ${viaTxt}${loc} — **unresolved, not bound** — no targets inferred; this call contributes nothing to the stack estimate (possible under-approximation). Add an fp-override.\n`);
+        md.appendMarkdown(`- ○ ${viaTxt}${loc} — **not bound** (targets not counted)\n`);
       }
     }
-    const anyUnbound = fpSites.some(s => !s.overridden);
-    if (anyUnbound) {
-      md.appendMarkdown(`\n_Unbound sites are auto-estimated, not manually verified. Use "Generate fp-overrides template" to bind them._\n\n`);
+    if (fpSites.some(s => !(s.overridden && s.candidates.length))) {
+      md.appendMarkdown(`\n_Unbound sites are not counted in the stack/depth — bind their targets in fp-overrides.json to include them._\n\n`);
     } else {
       md.appendMarkdown(`\n`);
     }
   } else if (rec.indirectCallees && rec.indirectCallees.length > 0) {
-    // Fallback (older data without fpSites): show the over-approximated set.
-    md.appendMarkdown(`**≀ Indirect calls** _(via function pointers, estimated — not bound)_\n\n`);
+    md.appendMarkdown(`**≀ Indirect calls** _(via function pointers, bound via fp-overrides)_\n\n`);
     const targets = rec.indirectCallees.map(t => fnLink(t, state)).join(", ");
-    md.appendMarkdown(`- possible targets: ${targets}\n`);
-    md.appendMarkdown(`\n_Auto-resolved worst-case; not manually verified._\n\n`);
+    md.appendMarkdown(`- targets: ${targets}\n\n`);
   }
 
   // ── Outgoing paths (top by stack) ───────────────────────────────────
